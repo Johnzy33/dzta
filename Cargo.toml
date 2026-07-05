@@ -1,0 +1,50 @@
+[package]
+name = "dzta"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+# Fabric SDK
+fabric-sdk = { version = "0.5.8" }
+tonic = "0.14.6"
+tonic-build = "0.14.6"
+prost = "0.14.4"
+
+# VCX & Askar
+# aries_vcx = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/aries_vcx/", default-features = false, features = ["askar_wallet"] }
+aries-askar = "0.4.6"
+# aries_vcx_ledger = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/aries_vcx_ledger/" }
+# aries_vcx_wallet = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/aries_vcx_wallet/" }
+# anoncreds_types = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/misc/anoncreds_types/" }
+# did_parser_nom = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/did_core/did_parser_nom/" }
+
+# Cryptography
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+async-trait = "0.1.77"
+tokio = { version = "1.35", features = ["full"] }
+uuid = { version = "1.23.4", features = ["v4", "serde"] }
+log = "0.4.33"
+env_logger = "0.11.11"
+anyhow = "1.0.103"
+thiserror = "2.0.18"
+
+# Utilities
+chrono = "0.4"
+base64 = "0.22.1"
+hex = "0.4"
+openssl = "0.10"
+sha2 = "0.11.0"
+
+
+
+[patch.crates-io]
+# glass_pumpkin = { path = "/home/daredevil/Development/Dev/dZTA/glass_pumpkin/" }
+# anoncreds-clsignatures = { path = "/home/daredevil/Development/Dev/dZTA/anoncreds-clsignatures-rs-main/" }
+# indy-data-types = { path = "/home/daredevil/Development/Dev/dZTA/indy-shared-rs-main/indy-data-types/" }
+# indy-vdr = { path = "/home/daredevil/Development/Dev/dZTA/indy-vdr-main/libindy_vdr/" }
+
+[dev-dependencies]
+tokio-test = "0.4"
