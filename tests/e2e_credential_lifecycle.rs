@@ -14,10 +14,10 @@ async fn test_full_credential_lifecycle_e2e() {
 
     // Path to your local Fabric network configuration profile
     let config_path = "config/connection-profile.yaml"; 
-    let channel_name = "demo";
+    let channel_name = "dzta";
     let chaincode_name = "dztac";
     let org_name = "Org1MSP";        // Set this to match your YAML profile org key
-    let peer_name = "org1-peer0.default"; // Set this to match your YAML profile peer key
+    let peer_name = "org1-peer1"; // Set this to match your YAML profile peer key
 
     let _config_exists = std::path::Path::new(config_path).exists();
 
@@ -38,7 +38,7 @@ async fn test_full_credential_lifecycle_e2e() {
                 channel_name: channel_name.to_string(),
                 chaincode_name: chaincode_name.to_string(),
                 org_mspid: "Org1MSP".to_string(),
-                peer_url: "grpcs://peer0-org1.localho.st:443".to_string(),
+                peer_url: "grpcs://org1-peer1.test-network.svc.cluster.local:7051".to_string(),
                 is_mock: true, 
             }
         }

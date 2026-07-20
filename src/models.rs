@@ -3,15 +3,47 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+// /// DID Document (from Fabric chaincode)
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub struct DIDDocument {
+//     #[serde(alias = "id")]
+//     pub did: String,
+//     pub issuer_did: String,
+//     pub public_key: String,
+//     pub created: i64,
+//     pub updated: i64,
+//     pub active: bool,
+// }
+
 /// DID Document (from Fabric chaincode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DIDDocument {
+    /// Maps both W3C compliant "id" and local "did" fields safely
+    #[serde(alias = "id")]
     pub did: String,
+    
+    #[serde(default)]
     pub issuer_did: String,
+    
     pub public_key: String,
+    
+    #[serde(default)]
     pub created: i64,
+    
+    #[serde(default)]
     pub updated: i64,
+    
+    #[serde(default, deserialize_with = "deserialize_bool_or_default")]
     pub active: bool,
+}
+
+/// Helper function to handle potential null/missing boolean conversions gracefully
+fn deserialize_bool_or_default<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or(true)) // Fallback to active if not explicitly set to false
 }
 
 /// Credential Metadata (from Fabric chaincode)
@@ -25,7 +57,9 @@ pub struct CredentialMetadata {
     pub expires_at: i64,
     pub revoked: bool,
     pub revoked_at: Option<i64>,
+    #[serde(default)]
     pub zkp_supported: bool,
+    #[serde(default)]
     pub proofable_fields: Vec<String>,
 }
 

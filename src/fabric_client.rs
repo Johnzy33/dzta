@@ -22,8 +22,13 @@ use fabric_sdk::fabric::gateway::{
     EndorseRequest, 
     EndorseResponse, 
     SignedCommitStatusRequest,
-    CommitStatusRequest
+    CommitStatusRequest,
+    SubmitRequest
 };
+use tonic::transport::{
+    Certificate, Channel, ClientTlsConfig, Endpoint, Identity as TonicIdentity,
+};
+//  use prost::Message;
 #[derive(Debug, Clone, Serialize)]
 pub struct FabricClient {
     #[serde(skip)]
@@ -124,6 +129,7 @@ impl FabricClient {
             .map_err(|e| WalletError::ConfigError(format!("Client endpoint assignment failed: {:?}", e)))?
             .build()
             .map_err(|e| WalletError::NetworkError(format!("Failed to build SDK client layout: {:?}", e)))?;
+        
 
         client.connect().await.map_err(|e| {
             WalletError::NetworkError(format!("Gateway gRPC channel handshake failed: {}", e))
@@ -131,6 +137,87 @@ impl FabricClient {
 
         Ok(client)
     }
+
+   /// Dynamically constructs an authenticated, TLS-encrypted GatewayClient completely independently of the SDK Client.
+
+    pub async fn build_tls_gateway_client(&self, user_context: &UserContext) -> WalletResult<GatewayClient<tonic::transport::Channel>> {
+        if self.is_mock {
+            return Err(WalletError::ConfigError("Cannot build live TLS client in mock mode".to_string()));
+        }
+
+        // 1. Fetch active configuration mapping context details
+        let config_guard = self.config.read().await;
+        let cert_pem = user_context.get_cert_pem();
+        let private_key_pem = user_context.get_key_pem();
+
+        // Check if the string content looks like a raw PEM block or a file path path-marker
+        let loaded_cert = if cert_pem.contains("-----BEGIN CERTIFICATE-----") {
+            cert_pem.as_bytes().to_vec()
+        } else {
+            // Synchronous fallback read if called inside non-async contexts
+            std::fs::read(cert_pem).map_err(|e| WalletError::ConfigError(format!("Failed to load cert file: {}", e)))?
+        };
+
+        let loaded_key = if private_key_pem.contains("-----BEGIN PRIVATE KEY-----") {
+            private_key_pem.to_string()
+        } else {
+            std::fs::read_to_string(private_key_pem).map_err(|e| WalletError::ConfigError(format!("Failed to load key file: {}", e)))?
+        };
+        
+        // 2. Resolve target peer connection configuration parameters directly from mapping profiles
+        let target_peer = "org1-peer1";
+        let peer_config = config_guard.get_peer_config(target_peer).map_err(|_| {
+            WalletError::ConfigError(format!("Target peer configuration profile '{}' not configured", target_peer))
+        })?;
+
+        // 3. Read the root TLS CA certificate bytes directly from disk paths mapping
+        let ca_cert_bytes = config_guard.read_peer_tonic_tls_cert_bytes(target_peer).await?;
+        if ca_cert_bytes.is_empty() {
+            return Err(WalletError::ConfigError(format!("TLS CA certificates are missing or empty for peer '{}'", target_peer)));
+        }
+        let ca_cert = tonic::transport::Certificate::from_pem(ca_cert_bytes);
+
+        
+
+        let client_identity = tonic::transport::Identity::from_pem(loaded_cert, loaded_key);
+        // ----------------------------------------
+
+        // 4. Assemble the strong TLS Layer profile configs with the Identity added
+        let mut tls_config = tonic::transport::ClientTlsConfig::new()
+            .ca_certificate(ca_cert)
+            .identity(client_identity); // Present this to pass the server's CertificateRequest
+
+        let domain = peer_config.url.split(':').next().unwrap_or("localhost");
+        tls_config = tls_config.domain_name(domain);
+
+        // 5. Establish raw transport Endpoint connectivity channels natively using tonic
+        let clean_url = peer_config.url
+            .replace("grpcs://", "")
+            .replace("grpc://", "")
+            .replace("https://", "")
+            .replace("http://", "");
+
+        let url_string = format!("https://{}", clean_url);
+
+        let endpoint = tonic::transport::Endpoint::from_shared(url_string).map_err(|e| {
+            WalletError::NetworkError(format!("Invalid endpoint URL structural mapping layout: {:?}", e))
+        })?;
+
+        let channel = endpoint
+            .tls_config(tls_config).map_err(|e| {
+                WalletError::NetworkError(format!("Failed to bind native gRPC TLS configurations: {:?}", e))
+            })?
+            .connect()
+            .await
+            .map_err(|e| {
+                WalletError::NetworkError(format!("Tonic transport engine handshake failed connecting to peer node: {:?}", e))
+            })?;
+
+        // 6. Return the constructed client
+        Ok(GatewayClient::new(channel))
+    }
+
+
 
     pub fn generate_did(&self) -> String {
         // Fallback or static generation for mock testing
@@ -296,8 +383,9 @@ impl FabricClient {
         Ok(dids)
     }
 
+
+
     /// Invoke chaincode (write/modify ledger state via gateway endorsement)
- 
     async fn invoke_chaincode(&self, invocation: &ChaincodeInvocation) -> WalletResult<String> {
         debug!(
             "Invoking chaincode function: {} with args: {:?}",
@@ -309,34 +397,15 @@ impl FabricClient {
             return Ok(format!("Mock transaction submitted: {}", invocation.function));
         }
 
-        // 1. Load active config mapping and cryptographic context details
+        // 1. Establish the SDK client context solely for building and signing proposals
         let config_guard = self.config.read().await;
         let user_context = config_guard.get_user_context().map_err(|_| {
             WalletError::ConfigError("Failed to load active user cryptographic contexts".to_string())
         })?;
-
-        // 2. Map dynamic internal identity configurations
         let identity = self.build_sdk_identity(&user_context)?;
+        let client = self.connect_gateway_client(identity.clone(), &config_guard, "org1-peer1").await?;
 
-        // 3. Establish the live SDK gateway client link
-        let client = self.connect_gateway_client(identity, &config_guard, "org1-peer0.default").await?;
-
-        // =================================================================
-        // DIAGNOSTIC LOGGING: Check variables right before call_builder injection
-        // =================================================================
-        info!(
-            "[dZTA SDK Trace] Assembling transaction proposal.\n\
-            Target Channel   : '{}'\n\
-            Target Chaincode : '{}'\n\
-            Target Function  : '{}'\n\
-            Payload Arguments: {:?}",
-            self.channel_name, self.chaincode_name, invocation.function, invocation.args
-        );
-
-        // 4. Assemble proposals using the exact ChaincodeCallBuilder layout patterns
-
-        // Build the prepared payload transaction mapping
-       
+        // 2. Assemble proposals using the exact ChaincodeCallBuilder layout patterns
         let mut call_builder = client.get_chaincode_call_builder();
         call_builder
             .with_channel_name(&self.channel_name)
@@ -345,7 +414,7 @@ impl FabricClient {
             .map_err(|e| WalletError::ConfigError(format!("Invalid chaincode execution identifier: {:?}", e)))?
             .with_function_name(&invocation.function)
             .map_err(|e| WalletError::ConfigError(format!("Invalid function endpoint layout: {:?}", e)))?
-            .with_system_chaincode(); // <-- FORCE THE CLEAN BARE FUNCTION STRING PAYLOAD HERE!
+            .with_system_chaincode();
 
         call_builder
             .with_function_args(&invocation.args)
@@ -355,7 +424,6 @@ impl FabricClient {
             WalletError::ChaincodeFailed(format!("Failed to construct prepared execution payload: {:?}", e))
         })?;
 
-        // Safely pull out the Transaction ID for validation tracing
         let tx_id = prepared_tx.signed_proposal()
             .get_proposal()
             .and_then(|p| p.get_header())
@@ -363,29 +431,51 @@ impl FabricClient {
             .map(|ch| ch.tx_id)
             .unwrap_or_default();
 
-        // =================================================================
-        // DIAGNOSTIC LOGGING: Check generated proposal metadata before network flight
-        // =================================================================
-        info!(
-            "[dZTA SDK Trace] Dispatching Proposal for Endorsement.\n\
-            Generated TxID   : '{}'\n\
-            Target Endpoint  : grpcs://peer0-org1.localho.st:443",
-            tx_id
-        );
-
-        // 5. Submit to active network peers for execution consensus signatures
-        let _envelope = prepared_tx.endorse(&client).await.map_err(|e| {
+        // 3. Endorse transaction to gather peer signatures into the unsigned Envelope wrapper
+        let mut unsigned_envelope = prepared_tx.endorse(&client).await.map_err(|e| {
             WalletError::ChaincodeFailed(format!("Ledger transaction signature execution rejected: {:?}", e))
         })?;
 
-        info!("Chaincode invocation submitted successfully: {} (TxID: {}). Awaiting ledger commit...", invocation.function, tx_id);
+        info!("Chaincode invocation endorsed successfully: {} (TxID: {}).", invocation.function, tx_id);
 
-        // 6. Polling block commit confirmation using the client's internal commit status handler
+        // =================================================================
+        // FIX: The envelope returned from endorse() is unsigned by the client.
+        // We sign its internal payload bytes using the identity context.
+        // =================================================================
+    
+        let payload_bytes: &[u8] = &unsigned_envelope.payload;
+
+        // Use the concrete identity context to sign the transaction payload bytes
+        let signature_bytes = identity.sign_message(payload_bytes);
+
+        // Append the client's signature directly into the Envelope structure wrapper block
+        unsigned_envelope.signature = signature_bytes;
+
+        // =================================================================
+        // Now the envelope contains both peer endorsements and your verified client signature
+        // =================================================================
+        let mut gateway_client = self.build_tls_gateway_client(&user_context).await.map_err(|e| {
+            WalletError::NetworkError(format!("Failed to build TLS Gateway client: {:?}", e))
+        })?;
+
+        let submit_request = SubmitRequest {
+            transaction_id: tx_id.clone(),
+            channel_id: self.channel_name.clone(), 
+            prepared_transaction: Some(unsigned_envelope),
+        };
+
+        gateway_client.submit(submit_request).await.map_err(|e| {
+            WalletError::ChaincodeFailed(format!("Gateway transaction submission failed: {:?}", e))
+        })?;
+
+        // 4. Polling block commit confirmation using the client's internal commit status handler
         self.wait_for_transaction_commit(&client, &tx_id, 30).await?;
 
         info!("Transaction {} fully committed to block state.", tx_id);
         Ok(tx_id)
     }
+
+
 
     /// Query chaincode (read ledger state - no orderer consensus required)
     async fn query_chaincode(&self, invocation: &ChaincodeInvocation) -> WalletResult<Vec<u8>> {
@@ -450,7 +540,7 @@ impl FabricClient {
         let identity = self.build_sdk_identity(&user_context)?;
         // let client = self.connect_gateway_client(identity, &config_guard).await?;
         // Inside invoke_chaincode and query_chaincode:
-        let client = self.connect_gateway_client(identity, &config_guard, "org1-peer0").await?;
+        let client = self.connect_gateway_client(identity, &config_guard, "org1-peer1").await?;
 
         // 3. Assemble the read proposal call parameters
         let mut call_builder = client.get_chaincode_call_builder();
@@ -480,57 +570,6 @@ impl FabricClient {
     }
 
     /// Polls the native Fabric Gateway CommitStatus endpoint until a given transaction ID 
- 
-
-    // / Polls the SDK client's native commit_status verification loop
-    // pub async fn wait_for_transaction_commit(
-    //     &self,
-    //     client: &Client,
-    //     tx_id: &str,
-    //     timeout_secs: u64,
-    // ) -> WalletResult<()> {
-    //     if self.is_mock {
-    //         info!("Mock Mode Active: Simulating immediate successful transaction commit for {}", tx_id);
-    //         return Ok(());
-    //     }
-
-    //     let start = std::time::Instant::now();
-    //     let timeout = Duration::from_secs(timeout_secs);
-    //     let poll_interval = Duration::from_millis(500);
-
-    //     loop {
-    //         if start.elapsed() > timeout {
-    //             error!("Transaction tracing window expired for tx: {}", tx_id);
-    //             return Err(WalletError::ChaincodeFailed(format!(
-    //                 "Transaction {} not committed within {} seconds", 
-    //                 tx_id, timeout_secs
-    //             )));
-    //         }
-
-           
-    //         match client.commit_status(tx_id.to_string(), self.channel_name.clone()).await {
-    //             Ok(status_payload) => {
-    //                 if status_payload.result == 0 {
-    //                     info!("Transaction {} confirmed in block number: {}", tx_id, status_payload.block_number);
-    //                     return Ok(());
-    //                 }
-                    
-    //                 if status_payload.result > 0 {
-    //                     return Err(WalletError::ChaincodeFailed(format!(
-    //                         "Transaction {} rejected by peer validation code: {}", 
-    //                         tx_id, status_payload.result
-    //                     )));
-    //                 }
-    //             }
-    //             Err(e) => {
-    //                 // Change from debug! to warn! or info! and dump the error details
-    //                 warn!("[dZTA Sync Trace] Commit status check returned an error: {:?}", e);
-    //             }
-    //         }
-
-    //         sleep(poll_interval).await;
-    //     }
-    // }
 
     pub async fn wait_for_transaction_commit(
         &self,
@@ -543,14 +582,11 @@ impl FabricClient {
             return Ok(());
         }
 
-        let start = Instant::now();
+        let start = std::time::Instant::now();
         let timeout = Duration::from_secs(timeout_secs);
         let poll_interval = Duration::from_millis(500);
-        // Give individual network round-trips a strict 2-second upper bound
-        let wire_timeout = Duration::from_secs(2); 
 
         loop {
-            // 1. Guard against cumulative execution timeout expiration
             if start.elapsed() > timeout {
                 error!("Transaction tracing window expired for tx: {}", tx_id);
                 return Err(WalletError::ChaincodeFailed(format!(
@@ -559,22 +595,14 @@ impl FabricClient {
                 )));
             }
 
-            // 2. Prepare the underlying gRPC commit status check future
-            let status_future = client.commit_status(tx_id.to_string(), self.channel_name.clone());
-            
-            // 3. Execute the future wrapped inside a tokio network timeout guard
-            match tokio_timeout(wire_timeout, status_future).await {
-                Ok(Ok(status_payload)) => {
-                    // Transaction validated and successfully committed to a block
+           
+            match client.commit_status(tx_id.to_string(), self.channel_name.clone()).await {
+                Ok(status_payload) => {
                     if status_payload.result == 0 {
-                        info!(
-                            "Transaction {} confirmed in block number: {}", 
-                            tx_id, status_payload.block_number
-                        );
+                        info!("Transaction {} confirmed in block number: {}", tx_id, status_payload.block_number);
                         return Ok(());
                     }
                     
-                    // Transaction found but rejected by peer validation logic (e.g., MVCC_READ_CONFLICT)
                     if status_payload.result > 0 {
                         return Err(WalletError::ChaincodeFailed(format!(
                             "Transaction {} rejected by peer validation code: {}", 
@@ -582,48 +610,17 @@ impl FabricClient {
                         )));
                     }
                 }
-                Ok(Err(e)) => {
-                    // The peer node returned an active network/transport error (e.g., UnexpectedEof, connection reset)
-                    warn!(
-                        "[dZTA Sync Trace] Commit status check returned a node/transport error: {:?}", 
-                        e
-                    );
-                }
-                Err(_) => {
-                    // The network request failed to respond completely within the 2-second wire_timeout window
-                    warn!(
-                        "[dZTA Sync Trace] Commit status check request timed out on the wire for tx: {}", 
-                        tx_id
-                    );
+                Err(e) => {
+                    // Change from debug! to warn! or info! and dump the error details
+                    warn!("[dZTA Sync Trace] Commit status check returned an error: {:?}", e);
                 }
             }
 
-            // 4. Back off before dispatching the next evaluation poll
             sleep(poll_interval).await;
         }
     }
 
-    // pub async fn wait_for_transaction_commit(
-    //     &self,
-    //     client: &Client,
-    //     tx_id: &str,
-    //     timeout_secs: u64,
-    // ) -> WalletResult<()> {
-    //     if self.is_mock {
-    //         info!("Mock Mode Active: Simulating immediate successful transaction commit for {}", tx_id);
-    //         return Ok(());
-    //     }
-
-    //     // Bypass unstable gRPC gateway commit_status streams
-    //     info!("[dZTA Sync] Transaction {} successfully broadcasted to consensus network. Waiting for state synchronization...", tx_id);
-        
-    //     // Give the local orderer container a brief, predictable window to cut the block and commit to CouchDB/LevelDB state
-    //     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
-        
-    //     info!("[dZTA Sync] State synchronization window completed for tx: {}", tx_id);
-    //     Ok(())
-    // }
-
+ 
     pub async fn get_endorsements_with_retry(
         &self,
         mut gateway_channel: GatewayClient<tonic::transport::Channel>,

@@ -31,6 +31,8 @@ pub struct PeerConfig {
     pub grpc_options: GrpcOptions,
     #[serde(rename = "tlsCACerts")]
     pub tls_ca_certs: Option<PathWrapper>,
+    #[serde(rename = "tlsCACertsTonic")]
+    pub tls_ca_certs_tonic: Option<PathWrapper>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -384,32 +386,25 @@ impl ConnectionConfig {
     }
 
     /// Reads and returns the raw TLS CA certificate bytes for a specific peer node name
-    // pub async fn read_peer_tls_cert_bytes(&self, peer_name: &str) -> WalletResult<Vec<u8>> {
-    //     let peer = self.peers.get(peer_name).ok_or_else(|| {
-    //         WalletError::ConfigError(format!("Peer '{}' not found for TLS loading", peer_name))
-    //     })?;
-
-    //     if let Some(ref wrapper) = peer.tls_ca_certs {
-    //         tokio::fs::read(&wrapper.path)
-    //             .await
-    //             .map_err(|e| WalletError::ConfigError(format!("Failed to read TLS CA file {}: {}", wrapper.path, e)))
-    //     } else {
-    //         Ok(Vec::new()) // Fallback gracefully if TLS is unconfigured or disabled
-    //     }
-    // }
     pub async fn read_peer_tls_cert_bytes(&self, peer_name: &str) -> WalletResult<Vec<u8>> {
-        // Try exact match first
-        let peer_opt = self.peers.get(peer_name)
-            // Fallback 1: If it's looking for "org1-peer0", match against "org1-peer0.default"
-            .or_else(|| self.peers.get(&format!("{}.default", peer_name)))
-            // Fallback 2: If it has ".default", strip it and check
-            .or_else(|| self.peers.get(&peer_name.replace(".default", "")));
-
-        let peer = peer_opt.ok_or_else(|| {
+        let peer = self.peers.get(peer_name).ok_or_else(|| {
             WalletError::ConfigError(format!("Peer '{}' not found for TLS loading", peer_name))
         })?;
 
         if let Some(ref wrapper) = peer.tls_ca_certs {
+            tokio::fs::read(&wrapper.path)
+                .await
+                .map_err(|e| WalletError::ConfigError(format!("Failed to read TLS CA file {}: {}", wrapper.path, e)))
+        } else {
+            Ok(Vec::new()) // Fallback gracefully if TLS is unconfigured or disabled
+        }
+    }
+    pub async fn read_peer_tonic_tls_cert_bytes(&self, peer_name: &str) -> WalletResult<Vec<u8>> {
+        let peer = self.peers.get(peer_name).ok_or_else(|| {
+            WalletError::ConfigError(format!("Peer '{}' not found for TLS loading", peer_name))
+        })?;
+
+        if let Some(ref wrapper) = peer.tls_ca_certs_tonic {
             tokio::fs::read(&wrapper.path)
                 .await
                 .map_err(|e| WalletError::ConfigError(format!("Failed to read TLS CA file {}: {}", wrapper.path, e)))
