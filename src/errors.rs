@@ -53,6 +53,9 @@ pub enum WalletError {
 
     #[error("Timeout waiting for transaction confirmation")]
     TransactionTimeout,
+    
+    #[error("Tee Execution failed: {0}")]
+    ExecutionFailed(String),
 
 
     #[error("Unknown error: {0}")]

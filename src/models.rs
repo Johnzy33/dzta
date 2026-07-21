@@ -158,7 +158,7 @@ pub struct StoredCredential {
 pub struct CredentialAttributes {
     pub user_role_id: String,
     pub org_id: String,
-    pub clearance_level: u32,
+    pub clearance_level: u64,
     pub timestamp: i64,
 }
 
@@ -171,7 +171,7 @@ pub struct ZKPWitness {
     pub subject_did: String,
     pub user_role_id: String,
     pub org_id: String,
-    pub clearance_level: u32,
+    pub clearance_level: u64,
     pub timestamp: i64,
     pub issued_at: i64,
     pub expires_at: i64,
@@ -208,4 +208,19 @@ pub struct ChaincodeResponse {
     pub status: u32,
     pub payload: Vec<u8>,
     pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct VerificationReceipt {
+    #[serde(rename = "credential_id")]
+    pub credential_id: String,
+
+    #[serde(rename = "verifier_mec")]
+    pub verifier_mec: String,
+
+    #[serde(rename = "verified_at")]
+    pub verified_at: i64,
+
+    #[serde(rename = "tee_quote")]
+    pub tee_quote: String,
 }

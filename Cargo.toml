@@ -3,6 +3,14 @@ name = "dzta"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = [
+    "zkp-core-crypto",
+    "tee-runner-enclave",
+    "dzta-protected-prover",
+]
+resolver = "2"
+
 [dependencies]
 
 # Fabric SDK
@@ -14,10 +22,6 @@ prost = "0.14.4"
 # VCX & Askar
 # aries_vcx = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/aries_vcx/", default-features = false, features = ["askar_wallet"] }
 aries-askar = "0.4.6"
-# aries_vcx_ledger = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/aries_vcx_ledger/" }
-# aries_vcx_wallet = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/aries_vcx_wallet/" }
-# anoncreds_types = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/aries/misc/anoncreds_types/" }
-# did_parser_nom = { path = "/home/daredevil/Development/Dev/dZTA/vcx-main/did_core/did_parser_nom/" }
 
 # Cryptography
 serde = { version = "1.0", features = ["derive"] }
@@ -30,7 +34,12 @@ log = "0.4.33"
 env_logger = "0.11.11"
 anyhow = "1.0.103"
 thiserror = "2.0.18"
-
+num-bigint = "0.4.3"
+num-traits = "0.2.15"
+ark-groth16 = { version = "0.6", default-features = false}
+ark-bls12-381 = { version = "0.6", default-features = false, features = ["curve"] }
+ark-snark = { version = "0.6", default-features = false }
+ark-serialize = { version = "0.6", default-features = false}
 # Utilities
 chrono = "0.4"
 base64 = "0.22.1"
@@ -41,10 +50,7 @@ sha2 = "0.11.0"
 
 
 [patch.crates-io]
-# glass_pumpkin = { path = "/home/daredevil/Development/Dev/dZTA/glass_pumpkin/" }
-# anoncreds-clsignatures = { path = "/home/daredevil/Development/Dev/dZTA/anoncreds-clsignatures-rs-main/" }
-# indy-data-types = { path = "/home/daredevil/Development/Dev/dZTA/indy-shared-rs-main/indy-data-types/" }
-# indy-vdr = { path = "/home/daredevil/Development/Dev/dZTA/indy-vdr-main/libindy_vdr/" }
+
 
 [dev-dependencies]
 tokio-test = "0.4"

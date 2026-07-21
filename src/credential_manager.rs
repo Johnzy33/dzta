@@ -299,7 +299,7 @@ impl CredentialManager {
             .get("clearanceLevel")
             .and_then(|v| v.as_u64())
             .ok_or_else(|| WalletError::InvalidWitness("Missing clearanceLevel".to_string()))?
-            as u32;
+            as u64;
 
         let timestamp = subject
             .get("timestamp")

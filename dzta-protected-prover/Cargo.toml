@@ -1,0 +1,17 @@
+[package]
+name = "dzta-protected-prover"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ark-groth16 = "0.6.0"
+ark-relations = "0.6.0"
+ark-serialize = "0.6.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand_chacha = { version = "0.3.1", default-features = false }
+ark-bls12-381 = { version = "0.6", default-features = false, features = ["curve"] }
+hex = "0.4"
+ark-ff = "0.6.0"
+ark-r1cs-std = "0.6.0"
+ark-snark = "0.6.0"

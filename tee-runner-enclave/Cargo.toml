@@ -1,0 +1,15 @@
+[package]
+name = "tee-runner-enclave"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ark-bls12-381 = { version = "0.6", default-features = false, features = ["curve"] }
+ark-r1cs-std = { version = "0.6", default-features = false }
+ark-groth16 = { version = "0.6", default-features = false}
+ark-serialize = { version = "0.6", default-features = false}
+ark-snark = { version = "0.6", default-features = false }
+ark-std = { version = "0.6", default-features = false}
+zeroize = { version = "1.7", features = ["derive"] }
+zkp-core-crypto = { path = "../zkp-core-crypto" }
+rand_chacha = { version = "0.3.1", default-features = false }
