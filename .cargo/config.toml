@@ -9,5 +9,5 @@ rustflags = [
     "-C", "panic=abort",
 ]
 
-# [build]
-# target = "aarch64-unknown-none" # Sets default build target for the TEE sandbox
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-gnu-gcc"
