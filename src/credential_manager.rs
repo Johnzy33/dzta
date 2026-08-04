@@ -8,6 +8,7 @@ use log::{info, debug, error};
 use std::sync::Arc;
 use aries_askar::{Store, StoreKeyMethod};
 use aries_askar::entry::EntryTag;
+use getrandom;
 
 pub struct CredentialManager {
     pub fabric_client: FabricClient,
@@ -235,6 +236,47 @@ impl CredentialManager {
         });
 
         Ok(metadata)
+    }
+
+    /// Retrieve or generate the user's master secret seed for ZKP nullifiers
+    pub async fn get_or_create_zkp_secret_seed(&self) -> WalletResult<Vec<u8>> {
+        let store_lock = self.askar_store.read().await;
+        let store = store_lock.as_ref()
+            .ok_or_else(|| WalletError::StorageError("Askar store not initialized".to_string()))?;
+
+        let mut session = store.session(None).await.map_err(|e| {
+            WalletError::StorageError(format!("Session creation failed: {}", e))
+        })?;
+
+        // 1. Try to fetch existing ZKP seed from Askar
+        if let Some(entry) = session.fetch("keys", "master_zkp_seed", false).await.map_err(|e| {
+            WalletError::StorageError(format!("Fetch failed: {}", e))
+        })? {
+            return Ok(entry.value.to_vec());
+        }
+
+        // 2. If it doesn't exist, generate a fresh random 32-byte seed
+        let mut new_seed = [0u8; 32];
+        getrandom::getrandom(&mut new_seed).map_err(|e| {
+            WalletError::StorageError(format!("RNG generation failed: {}", e))
+        })?;
+
+        // 3. Store it safely in Askar
+        session.insert(
+            "keys",
+            "master_zkp_seed",
+            &new_seed,
+            None,
+            None,
+        ).await.map_err(|e| {
+            WalletError::StorageError(format!("Failed to save ZKP seed: {}", e))
+        })?;
+
+        session.commit().await.map_err(|e| {
+            WalletError::StorageError(format!("Commit failed: {}", e))
+        })?;
+
+        Ok(new_seed.to_vec())
     }
 
     /// Verify credential is not revoked

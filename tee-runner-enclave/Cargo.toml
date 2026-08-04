@@ -10,6 +10,7 @@ ark-groth16 = { version = "0.6", default-features = false}
 ark-serialize = { version = "0.6", default-features = false}
 ark-snark = { version = "0.6", default-features = false }
 ark-std = { version = "0.6", default-features = false}
+ark-ff = "0.6.0"
 zeroize = { version = "1.7", features = ["derive"] }
 zkp-core-crypto = { path = "../zkp-core-crypto" }
 rand_chacha = { version = "0.3.1", default-features = false }

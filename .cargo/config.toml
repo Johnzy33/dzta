@@ -1,0 +1,13 @@
+[target.thumbv7em-none-eabihf]
+rustflags = [
+    "-C", "link-arg=-Tlink.x", 
+    "-C", "relocation-model=static",
+]
+
+[target.aarch64-unknown-none]
+rustflags = [
+    "-C", "panic=abort",
+]
+
+# [build]
+# target = "aarch64-unknown-none" # Sets default build target for the TEE sandbox

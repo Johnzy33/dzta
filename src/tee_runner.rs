@@ -1,14 +1,14 @@
 // src/tee_runner.rs
-use crate::zkp_core::ZkpCore;
 use crate::errors::{WalletError, WalletResult};
-use crate::models::{ZKPWitness, VerificationReceipt }  ;
+use crate::models::{VerificationReceipt, ZKPWitness};
+use crate::zkp_core::ZkpCore;
+use ark_bls12_381::{Bls12_381, Fr};
+use ark_groth16::{Groth16, PreparedVerifyingKey, Proof};
+use ark_serialize::CanonicalDeserialize;
+use ark_snark::SNARK;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-use ark_groth16::{Groth16, PreparedVerifyingKey, Proof};
-use ark_bls12_381::{Fr, Bls12_381};
-use ark_snark::SNARK;
-use ark_serialize::CanonicalDeserialize;
 
 static ENCLAVE_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
@@ -28,8 +28,7 @@ unsafe extern "C" {
 pub struct EnclaveExecutionProxy;
 
 impl EnclaveExecutionProxy {
-
-     /// Initializes hardware bindings if required by the runtime.
+    /// Initializes hardware bindings if required by the runtime.
     pub fn initialize_enclave() -> WalletResult<()> {
         if ENCLAVE_INITIALIZED.load(Ordering::SeqCst) {
             return Ok(());
@@ -81,25 +80,33 @@ impl EnclaveExecutionProxy {
         Ok(out_proof)
     }
 
-    /// Deserializes proof bytes and public inputs to verify against the circuit's VerifyingKey.
+    /// Deserializes proof bytes and verifies them against the circuit's PreparedVerifyingKey.
+    ///
+    /// NOTE: Public inputs MUST match the exact allocation order in ConstraintSynthesizer:
+    /// 1. required_clearance_level
+    /// 2. public_commitment
     pub fn verify_groth16_proof(
         &self,
         proof_bytes: &[u8],
-        public_inputs: &[u64],
+        required_clearance: u64,
+        public_commitment: u64,
         pvk: &PreparedVerifyingKey<Bls12_381>,
     ) -> WalletResult<bool> {
-        // 1. Deserialize the proof from uncompressed/compressed canonical byte representation
-        let proof = Proof::<Bls12_381>::deserialize_uncompressed(proof_bytes).map_err(|e| {
-            WalletError::ExecutionFailed(format!("Failed to deserialize proof bytes: {e}"))
-        })?;
+        // 1. Deserialize proof from canonical compressed representation
+        let proof = Proof::<Bls12_381>::deserialize_compressed(proof_bytes)
+            .or_else(|_| Proof::<Bls12_381>::deserialize_uncompressed(proof_bytes))
+            .map_err(|e| {
+                WalletError::ExecutionFailed(format!("Failed to deserialize proof bytes: {e}"))
+            })?;
 
-        // 2. Map primitive u64 public inputs into BN254 scalar field elements (Fr)
-        let public_fr_inputs: Vec<Fr> = public_inputs
-            .iter()
-            .map(|&val| Fr::from(val))
-            .collect();
+        // 2. Construct public input field vector (Fr) strictly adhering to circuit allocation order
+        //    Order: [required_clearance_level, public_commitment]
+        let public_fr_inputs: Vec<Fr> = vec![
+            Fr::from(required_clearance),
+            Fr::from(public_commitment),
+        ];
 
-        // 3. Perform pairing check: e(A, B) = e(&alpha, &beta) * e(C, &delta) * \prod e(L_i, \gamma)
+        // 3. Perform pairing verification: e(A, B) = e(alpha, beta) * e(C, delta) * prod(e(L_i, gamma))
         let is_valid = Groth16::<Bls12_381>::verify_with_processed_vk(pvk, &public_fr_inputs, &proof)
             .map_err(|e| {
                 WalletError::ExecutionFailed(format!("Groth16 verification error: {e}"))
@@ -108,8 +115,7 @@ impl EnclaveExecutionProxy {
         Ok(is_valid)
     }
 
-
-    /// Verifies proof bytes and builds the Go chaincode-compatible receipt.
+    /// Verifies proof bytes and builds the Go chaincode-compatible receipt for Hyperledger Fabric.
     pub fn verify_and_generate_receipt(
         &self,
         credential_id: &str,

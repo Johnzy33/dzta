@@ -15,3 +15,6 @@ hex = "0.4"
 ark-ff = "0.6.0"
 ark-r1cs-std = "0.6.0"
 ark-snark = "0.6.0"
+num-bigint = "0.5.1"
+num-traits = "0.2"
+zkp-core-crypto = { path = "../zkp-core-crypto" }
