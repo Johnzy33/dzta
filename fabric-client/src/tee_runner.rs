@@ -6,7 +6,7 @@ use ark_bls12_381::{Bls12_381, Fr};
 use ark_groth16::{Groth16, PreparedVerifyingKey, Proof};
 use ark_serialize::CanonicalDeserialize;
 use ark_snark::SNARK;
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 

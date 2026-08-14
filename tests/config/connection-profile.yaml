@@ -1,0 +1,100 @@
+name: "hlf-network"
+version: "1.0"
+
+client:
+  organization: Org1MSP
+  credentialStore:
+    path: "/tmp/wallet"
+    cryptoStore:
+      path: "/tmp/msp"
+  tlsCerts:
+    client:
+      key:
+        path: "config/certs/cas/admin-key.key"
+      cert:
+        path: "config/certs/cas/admin-cert.crt"
+
+organizations:
+  Org1MSP:
+    mspid: Org1MSP
+    cryptoPath: /tmp/cryptopath
+    peers:
+      - org1-peer1
+    certificateAuthorities:
+      - org1-ca.test-network
+    users:
+      admin:
+        cert:
+          path: "config/certs/cas/admin-cert.crt"
+        key:
+          path: "config/certs/cas/admin-key.key"
+
+  OrdererMSP:
+    mspid: OrdererMSP
+    cryptoPath: /tmp/cryptopath
+    orderers:
+      - org0-orderer1.test-network
+      - org0-orderer2.test-network
+      - org0-orderer3.test-network
+
+peers:
+  org1-peer1:
+    url: "org1-peer1.localho.st:443"
+    grpcOptions:
+      ssl-target-name-override: "org1.example.com"
+      allow-insecure: false
+    tlsCACerts:
+      path: "config/certs/peers/org1-peer1-tls-ca.crt"
+    tlsCACertsTonic:
+      path: "config/certs/peers/org1-peer1-tonic-tls-ca.crt"
+    
+
+orderers:
+
+  org0-orderer1.test-network:
+    url: "grpcs://org0-orderer1.test-network.svc.cluster.local:6050"
+    grpcOptions:
+      ssl-target-name-override: "org0-orderer1.test-network.svc.cluster.local"
+      allow-insecure: false
+    tlsCACerts:
+      path: "config/certs/orderers/tls-ca.crt"
+
+  org0-orderer2.test-network:
+    url: "grpcs://org0-orderer2.test-network.svc.cluster.local:6050"
+    grpcOptions:
+      ssl-target-name-override: "org0-orderer2.test-network.svc.cluster.local"
+      allow-insecure: false
+    tlsCACerts:
+      path: "config/certs/orderers/tls-ca.crt"
+
+  org0-orderer3.test-network:
+    url: "grpcs://org0-orderer3.test-network.svc.cluster.local:6050"
+    grpcOptions:
+      ssl-target-name-override: "org0-orderer3.test-network.svc.cluster.local"
+      allow-insecure: false
+    tlsCACerts:
+      path: "config/certs/orderers/tls-ca.crt"
+certificateAuthorities:
+  org1-ca.test-network:
+    url: "https://org1-ca.test-network.svc.cluster.local:7054"
+    caName: ca
+    tlsCACerts:
+      path: "config/certs/cas/org1-ca-tls.crt"
+    registrar:
+      enrollId: admin
+      enrollSecret: adminpw
+    httpOptions:
+      verify: false
+
+channels:
+  dzta:
+    orderers:
+      - org0-orderer1.test-network
+      - org0-orderer2.test-network
+      - org0-orderer3.test-network
+    peers:
+      org1-peer1:
+        endorsingPeer: true
+        chaincodeQuery: true
+        ledgerQuery: true
+        eventSource: true

@@ -1,4 +1,4 @@
-// src/lib.rs
+// fabric-client/src/lib.rs
 pub mod fabric_client;
 pub mod credential_manager;
 pub mod witness_generator;
@@ -11,7 +11,7 @@ pub mod tee_runner;
 
 
 
-pub use fabric_client::FabricClient;
+pub use fabric_client::*;
 pub use credential_manager::CredentialManager;
 pub use witness_generator::ZKPWitnessGenerator;
 pub use models::*;

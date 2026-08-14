@@ -1,10 +1,13 @@
 use std::sync::Arc;
 use log::{info, warn};
 
-use dzta::{
+
+
+use fabric_client::{
     FabricClient, CredentialManager, ZKPWitnessGenerator,
     ConnectionConfig, CredentialAttributes, SchemaAttribute,
 };
+
 
 #[tokio::test]
 async fn test_full_credential_lifecycle_e2e() {
@@ -172,7 +175,7 @@ async fn test_full_credential_lifecycle_e2e() {
     let post_revocation_check = cred_manager.verify_credential_active(&target_credential_id).await;
 
     match post_revocation_check {
-        Err(dzta::errors::WalletError::RevocationError(msg)) => {
+        Err(fabric_client::errors::WalletError::RevocationError(msg)) => {
             info!("✓ Revocation Verified: System blocked execution path as designed. Reason: {}", msg);
         }
         _ => {

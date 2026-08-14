@@ -7,12 +7,12 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 // use std::time::Duration;
-use prost::Message;
+// use prost::Message;
 use tokio::time::sleep;
-use tokio::time::timeout as tokio_timeout;
-use std::time::{Duration, Instant};
+// use tokio::time::timeout as tokio_timeout;
+use std::time::{Duration};
 use sha2::{Sha256, Digest};
-use serde::{Deserialize, Serialize};
+use serde::{ Serialize};
 
 
 pub use fabric_sdk::gateway::client::{Client, ClientBuilder};
@@ -21,13 +21,13 @@ use fabric_sdk::fabric::gateway::{
     gateway_client::GatewayClient, 
     EndorseRequest, 
     EndorseResponse, 
-    SignedCommitStatusRequest,
-    CommitStatusRequest,
+    // SignedCommitStatusRequest,
+    // CommitStatusRequest,
     SubmitRequest
 };
-use tonic::transport::{
-    Certificate, Channel, ClientTlsConfig, Endpoint, Identity as TonicIdentity,
-};
+// use tonic::transport::{
+//     Certificate, Channel, ClientTlsConfig, Endpoint, Identity as TonicIdentity,
+// };
 //  use prost::Message;
 #[derive(Debug, Clone, Serialize)]
 pub struct FabricClient {
@@ -40,13 +40,14 @@ pub struct FabricClient {
     pub is_mock: bool, // Flag to toggle between mock mode and the production network
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ChaincodeInvocation {
-    pub function: String,
-    pub args: Vec<String>,
-}
+// #[derive(Debug, Clone, Serialize)]
+// pub struct ChaincodeInvocation {
+//     pub function: String,
+//     pub args: Vec<String>,
+// }
 
 impl FabricClient {
+
     /// Initialize Fabric client
     pub async fn new(
         config_path: &str,
@@ -57,7 +58,18 @@ impl FabricClient {
     ) -> WalletResult<Self> {
         let config = ConnectionConfig::from_file(config_path).await?;
         let org_mspid = config.get_org_mspid(org_name)?;
-        let peer_url = config.get_peer_url(peer_name)?;
+
+        // =====================================================================
+        // Check FABRIC_PEER_ENDPOINT env var first, fall back to connection profile
+        // =====================================================================
+        let raw_peer_url = std::env::var("FABRIC_PEER_ENDPOINT")
+            .unwrap_or_else(|_| config.get_peer_url(peer_name).unwrap_or_default());
+
+        let peer_url = raw_peer_url
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'')
+            .to_string();
 
         info!("Initialized Fabric client: {} on {}", chaincode_name, peer_url);
 
@@ -67,7 +79,7 @@ impl FabricClient {
             chaincode_name: chaincode_name.to_string(),
             org_mspid,
             peer_url,
-            is_mock: false, // Default to true; toggle manually or via env setup
+            is_mock: false,
         })
     }
 
@@ -190,8 +202,16 @@ impl FabricClient {
         let domain = peer_config.url.split(':').next().unwrap_or("localhost");
         tls_config = tls_config.domain_name(domain);
 
+        let raw_url = std::env::var("FABRIC_PEER_ENDPOINT")
+            .unwrap_or_else(|_| peer_config.url.clone());
+
+        let sanitized_url = raw_url
+            .trim()
+            .trim_matches('"')
+            .trim_matches('\'');
+
         // 5. Establish raw transport Endpoint connectivity channels natively using tonic
-        let clean_url = peer_config.url
+        let clean_url = sanitized_url
             .replace("grpcs://", "")
             .replace("grpc://", "")
             .replace("https://", "")

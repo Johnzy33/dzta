@@ -3,11 +3,8 @@ kind: Deployment
 metadata:
   name: dzta-mec-edge-ingress
   namespace: dzta-edge
-  labels:
-    app.kubernetes.io/layer: "4"
-    app.kubernetes.io/component: "edge-enforcer"
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: dzta-mec-edge-ingress
@@ -19,6 +16,8 @@ spec:
       containers:
       - name: envoy-zkp-proxy
         image: dzta-registry.internal/edge/enforcer:v1.0.0
+        command: ["envoy"]
+        args: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "info"]
         ports:
         - containerPort: 10000
           name: http-ingress
@@ -26,38 +25,40 @@ spec:
           name: envoy-admin
         resources:
           limits:
-            cpu: "2"
-            memory: "1Gi"
+            memory: "512Mi"
           requests:
-            cpu: "500m"
             memory: "256Mi"
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           capabilities:
             drop:
             - ALL
+        volumeMounts:
+        - mountPath: /tmp
+          name: tmp-volume
+        - mountPath: /etc/envoy/envoy.yaml
+          subPath: envoy.yaml
+          name: envoy-config-volume
+
       - name: fabric-revocation-daemon
         image: dzta-registry.internal/edge/revocation-daemon:v1.0.0
         env:
         - name: FABRIC_PEER_ENDPOINT
-          value: "grpcs://peer0.org1.dzta-network.com:7051"
+          value: "grpcs://org1-peer1.test-network.svc.cluster.local:7051"
+        - name: ENVOY_ADMIN_URL
+          value: "http://127.0.0.1:9901"
         resources:
           limits:
-            cpu: "500m"
-            memory: "256Mi"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: dzta-edge-service
-  namespace: dzta-edge
-spec:
-  type: LoadBalancer
-  ports:
-  - port: 80
-    targetPort: 10000
-    protocol: TCP
-    name: http
-  selector:
-    app: dzta-mec-edge-ingress
+            # cpu: "250m"
+            memory: "128Mi"
+          requests:
+            # cpu: "50m"
+            memory: "64Mi"
+
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: envoy-config-volume
+        configMap:
+          name: envoy-config

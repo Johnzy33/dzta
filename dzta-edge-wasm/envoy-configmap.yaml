@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envoy-config
+  namespace: dzta-edge
+data:
+  envoy.yaml: |
+    admin:
+      access_log_path: /dev/null
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 9901
+
+    layered_runtime:
+      layers:
+      - name: admin
+        admin_layer: {}
+
+    static_resources:
+      listeners:
+      - name: mec_edge_ingress
+        address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 10000
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: ingress_http
+              codec_type: AUTO
+              route_config:
+                name: local_route
+                virtual_hosts:
+                - name: local_service
+                  domains: ["*"]
+                  routes:
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: internal_app_service
+
+              http_filters:
+              # Layer 4 dZTA Wasm Enforcement Filter
+              - name: envoy.filters.http.wasm
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                  config:
+                    name: "dzta_zkp_verifier"
+                    root_id: ""
+                    vm_config:
+                      runtime: "envoy.wasm.runtime.v8"
+                      vm_id: "dzta_vm"
+                      code:
+                        local:
+                          filename: "/etc/envoy/dzta_edge_wasm.wasm"
+                      allow_precompiled: false
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+      clusters:
+      - name: internal_app_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        connect_timeout: 0.25s
+        load_assignment:
+          cluster_name: internal_app_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: 127.0.0.1
+                    port_value: 8080

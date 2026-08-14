@@ -1,10 +1,10 @@
 // src/main.rs
-use dzta::{
+use fabric_client::{
     FabricClient, CredentialManager, ZKPWitnessGenerator,
     ConnectionConfig, CredentialAttributes, SchemaAttribute,
 };
 use std::sync::Arc;
-use log::{info, error};
+use log::{info};
 use tokio;
 
 #[tokio::main]

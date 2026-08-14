@@ -4,6 +4,11 @@ admin:
       address: 0.0.0.0
       port_value: 9901
 
+layered_runtime:
+  layers:
+  - name: admin
+    admin_layer: {}
+
 static_resources:
   listeners:
   - name: mec_edge_ingress
@@ -30,7 +35,6 @@ static_resources:
                   cluster: internal_app_service
 
           http_filters:
-          # Layer 4 dZTA Wasm Enforcement Filter
           - name: envoy.filters.http.wasm
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
@@ -43,7 +47,7 @@ static_resources:
                   code:
                     local:
                       filename: "/etc/envoy/dzta_edge_wasm.wasm"
-                  allow_precompiled: true
+                  allow_precompiled: false
           - name: envoy.filters.http.router
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router

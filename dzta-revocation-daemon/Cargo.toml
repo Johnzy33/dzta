@@ -1,0 +1,27 @@
+[package]
+name = "dzta-revocation-daemon"
+version = "0.1.0"
+edition = "2021"
+
+
+
+[dependencies]
+# proxy-wasm = "0.2"
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# base64 = "0.21"
+# ark-bn254 = { version = "0.6.0", default-features = false }
+# ark-bls12-381 = { version = "0.6", default-features = false, features = ["curve"] }
+# ark-groth16 = { version = "0.6.0", default-features = false }
+# ark-serialize = { version = "0.6.0", default-features = false }
+# ark-std = { version = "0.6.0", default-features = false }
+tonic = "0.14.6"
+tokio = { version = "1.35", features = ["full"] }
+fabric-sdk = { version = "0.5.8" }
+prost = "0.14.4"
+# reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+env_logger = "0.11.11"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+fabric-client = { path = "../fabric-client" }

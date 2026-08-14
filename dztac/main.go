@@ -173,6 +173,23 @@ func (c *DztaContract) IsCredentialRevoked(ctx contractapi.TransactionContextInt
 }
 
 // RevokeCredential handles administrative lifecycle mutations
+// func (c *DztaContract) RevokeCredential(ctx contractapi.TransactionContextInterface, credentialID string) error {
+// 	key := fmt.Sprintf("CRED_%s", credentialID)
+// 	meta, err := c.GetCredentialMetadata(ctx, credentialID)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	meta.Revoked = true
+
+//		metaBytes, err := json.Marshal(meta)
+//		if err != nil {
+//			return err
+//		}
+//		return ctx.GetStub().PutState(key, metaBytes)
+//	}
+//
+// RevokeCredential handles administrative lifecycle mutations
 func (c *DztaContract) RevokeCredential(ctx contractapi.TransactionContextInterface, credentialID string) error {
 	key := fmt.Sprintf("CRED_%s", credentialID)
 	meta, err := c.GetCredentialMetadata(ctx, credentialID)
@@ -186,7 +203,38 @@ func (c *DztaContract) RevokeCredential(ctx contractapi.TransactionContextInterf
 	if err != nil {
 		return err
 	}
-	return ctx.GetStub().PutState(key, metaBytes)
+
+	// 1. Write state update to world state DB
+	err = ctx.GetStub().PutState(key, metaBytes)
+	if err != nil {
+		return err
+	}
+
+	// 2. EXPLICITLY EMIT CHAINCODE EVENT FOR THE DAEMON
+	txTimestamp, _ := ctx.GetStub().GetTxTimestamp()
+	var revokedAt int64 = 0
+	if txTimestamp != nil {
+		revokedAt = txTimestamp.Seconds
+	}
+
+	eventPayload := map[string]interface{}{
+		"credential_id": credentialID,
+		"revoked_at":    revokedAt,
+		"reason":        "Revoked via Administrative Lifecycle Request",
+	}
+
+	eventBytes, err := json.Marshal(eventPayload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal revocation event payload: %v", err)
+	}
+
+	// "RevokeCredential" matches the event_name check in your Rust daemon!
+	err = ctx.GetStub().SetEvent("RevokeCredential", eventBytes)
+	if err != nil {
+		return fmt.Errorf("failed to emit RevokeCredential event: %v", err)
+	}
+
+	return nil
 }
 
 // ==========================================

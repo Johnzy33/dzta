@@ -1,3 +1,4 @@
+//dzta-revocation-daemon/src/main.rs
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,8 +8,8 @@ use log::{error, info, warn, debug};
 use prost::Message;
 
 // Import your custom fabric client structures and protobuf definitions
-use dzta::fabric_client::FabricClient;
-use dzta::config::UserContext;
+use fabric_client::FabricClient;
+use fabric_client::config::UserContext;
 use fabric_sdk::identity::IdentityBuilder;
 
 // Generated Fabric Gateway Protobuf Types
@@ -16,6 +17,12 @@ use fabric_sdk::fabric::gateway::{
     ChaincodeEventsRequest, 
     SignedChaincodeEventsRequest, 
     ChaincodeEventsResponse
+};
+use fabric_sdk::fabric::msp::SerializedIdentity;
+
+
+use fabric_sdk::fabric::orderer::{
+    seek_position, SeekPosition, SeekSpecified,
 };
 
 /// Payload structure emitted by the Layer 1a "RevokeCredential" smart contract action.
@@ -74,6 +81,7 @@ impl FabricRevocationListener {
         }
     }
 
+
     /// Establishes the gRPC server-streaming connection via `GatewayClient::chaincode_events`.
     async fn stream_chaincode_events(&self) -> Result<(), Box<dyn std::error::Error>> {
         // 1. Build TLS Gateway Client
@@ -82,7 +90,7 @@ impl FabricRevocationListener {
             .build_tls_gateway_client(&self.user_context)
             .await?;
 
-        // 2. Prepare SDK Identity to sign the gRPC request
+        // 2. Load cryptographic materials from user context
         let cert_pem = self.user_context.get_cert_pem();
         let private_key_pem = self.user_context.get_key_pem();
 
@@ -98,17 +106,30 @@ impl FabricRevocationListener {
             std::fs::read_to_string(private_key_pem)?
         };
 
+        // 3. Build SDK Identity for signing
         let sdk_identity = IdentityBuilder::from_pem(&loaded_cert)?
             .with_msp(self.fabric_client.get_org_mspid())?
             .with_private_key(loaded_key)?
             .build()?;
 
-        // 3. Assemble the raw ChaincodeEventsRequest payload
+        // =====================================================================
+        // FIX: Encode SerializedIdentity protobuf (MSP ID + PEM Certificate)
+        // =====================================================================
+        let serialized_identity = SerializedIdentity {
+            mspid: self.fabric_client.get_org_mspid().to_string(),
+            id_bytes: loaded_cert.clone(),
+        };
+        let identity_bytes = serialized_identity.encode_to_vec();
+
+        // 4. Assemble the raw ChaincodeEventsRequest payload  
+        // Option A: Start reading all events from Block 0 (Replays history + listens live)
         let raw_request = ChaincodeEventsRequest {
             channel_id: self.fabric_client.get_channel_name().to_string(),
             chaincode_id: self.fabric_client.get_chaincode_name().to_string(),
-            identity: loaded_cert.clone(), // Standardized identity bytes
-            start_position: None, // Seek from current head block
+            identity: identity_bytes,
+            start_position: Some(SeekPosition {
+                r#type: Some(seek_position::Type::Specified(SeekSpecified { number: 0 })),
+            }),
             after_transaction_id: String::new(),
         };
 
@@ -125,18 +146,19 @@ impl FabricRevocationListener {
             signature,
         };
 
-        // 4. Open gRPC Server-Streaming Pipe
+        // 5. Open gRPC Server-Streaming Pipe
         let mut response_stream = gateway_client
             .chaincode_events(signed_request)
             .await?
             .into_inner();
 
-        info!("[Layer 4 Daemon] Subscribed to ChaincodeEvents stream for channel '{}' and chaincode '{}'", 
+        info!(
+            "[Layer 4 Daemon] Subscribed to ChaincodeEvents stream for channel '{}' and chaincode '{}'", 
             self.fabric_client.get_channel_name(),
             self.fabric_client.get_chaincode_name()
         );
 
-        // 5. Stream processing loop
+        // 6. Stream processing loop
         while let Some(events_response) = response_stream.message().await? {
             self.process_chaincode_events_response(events_response).await;
         }
@@ -185,33 +207,85 @@ impl FabricRevocationListener {
     }
 
     /// Pushes the revoked ID to Envoy's local runtime admin memory endpoint.
+    // async fn sync_to_envoy_memory(&self, credential_id: &str) {
+    //     // Correct query format: /runtime_modify?revoked.<credential_id>=true
+    //     let url = format!(
+    //         "{}/runtime_modify?revoked.{}=true",
+    //         self.envoy_admin_url.trim_end_matches('/'),
+    //                       credential_id
+    //     );
+
+    //     let client = reqwest::Client::new();
+    //     // Increased timeout to 3 seconds to avoid false timeouts under container load
+    //     match client.post(&url).timeout(Duration::from_secs(3)).send().await {
+    //         Ok(res) if res.status().is_success() => {
+    //             info!(
+    //                 "[Layer 4 Daemon] Successfully injected revocation [{}] into Envoy Wasm runtime cache.",
+    //                 credential_id
+    //             );
+    //         }
+    //         Ok(res) => {
+    //             warn!(
+    //                 "[Layer 4 Daemon] Envoy runtime update request returned HTTP status: {}",
+    //                 res.status()
+    //             );
+    //         }
+    //         Err(e) => {
+    //             error!(
+    //                 "[Layer 4 Daemon] Failed to reach Envoy Admin API at {}: {:?}",
+    //                 url, e
+    //             );
+    //         }
+    //     }
+    // }
+
+    /// Pushes the revoked ID to Envoy's local runtime admin memory endpoint with retries.
     async fn sync_to_envoy_memory(&self, credential_id: &str) {
         let url = format!(
-            "{}/runtime_modify?key=revoked.{}&val=true",
-            self.envoy_admin_url, credential_id
+            "{}/runtime_modify?revoked.{}=true",
+            self.envoy_admin_url.trim_end_matches('/'),
+            credential_id
         );
 
         let client = reqwest::Client::new();
-        match client.post(&url).timeout(Duration::from_millis(200)).send().await {
-            Ok(res) if res.status().is_success() => {
-                info!(
-                    "[Layer 4 Daemon] Successfully injected revocation [{}] into Envoy Wasm runtime cache.",
-                    credential_id
-                );
+        let mut retries = 5;
+        let mut delay = Duration::from_millis(500);
+
+        while retries > 0 {
+            match client.post(&url).timeout(Duration::from_secs(5)).send().await {
+                Ok(res) if res.status().is_success() => {
+                    info!(
+                        "[Layer 4 Daemon] Successfully injected revocation [{}] into Envoy Wasm runtime cache.",
+                        credential_id
+                    );
+                    return;
+                }
+                Ok(res) => {
+                    warn!(
+                        "[Layer 4 Daemon] Envoy runtime update returned HTTP {}. Retrying in {}ms...",
+                        res.status(),
+                        delay.as_millis()
+                    );
+                }
+                Err(e) => {
+                    warn!(
+                        "[Layer 4 Daemon] Envoy Admin API not ready ({:?}). Retrying in {}ms... ({} attempts left)",
+                        e,
+                        delay.as_millis(),
+                        retries - 1
+                    );
+                }
             }
-            Ok(res) => {
-                warn!(
-                    "[Layer 4 Daemon] Envoy runtime update request returned HTTP status: {}",
-                    res.status()
-                );
-            }
-            Err(e) => {
-                error!(
-                    "[Layer 4 Daemon] Failed to reach Envoy Admin API at {}: {:?}",
-                    url, e
-                );
-            }
+
+            tokio::time::sleep(delay).await;
+            delay = std::cmp::min(delay * 2, Duration::from_secs(5));
+            retries -= 1;
         }
+
+        error!(
+            "[Layer 4 Daemon] Permanent failure injecting revocation [{}] into Envoy.",
+            credential_id
+        );
     }
 }
 

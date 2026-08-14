@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  enforcer:
+    build:
+      context: .
+      dockerfile: dzta-edge-wasm/Dockerfile
+    image: dzta-enforcer:latest
+    ports:
+      - "10000:10000"
+      - "9901:9901"
+
+  revocation-daemon:
+    build:
+      context: .
+      dockerfile: dzta-revocation-daemon/Dockerfile
+    image: dzta-revocation-daemon:latest
+    ports:
+      - "50051:50051"

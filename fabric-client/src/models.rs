@@ -1,19 +1,9 @@
 // src/models.rs
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
+// use uuid::Uuid;
 
-// /// DID Document (from Fabric chaincode)
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// pub struct DIDDocument {
-//     #[serde(alias = "id")]
-//     pub did: String,
-//     pub issuer_did: String,
-//     pub public_key: String,
-//     pub created: i64,
-//     pub updated: i64,
-//     pub active: bool,
-// }
+
 
 /// DID Document (from Fabric chaincode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
