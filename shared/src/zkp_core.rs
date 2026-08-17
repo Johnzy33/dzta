@@ -1,27 +1,37 @@
-//fabric-client/src/zkp_core.rs
 use ark_bls12_381::Fr;
 use ark_ff::{BigInteger, PrimeField};
+use log::debug;
 use num_bigint::BigUint;
 use num_traits::Num;
-use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use log::debug;
+use sha2::{Digest, Sha256};
+use zeroize::Zeroize;
 
-use crate::models::ZKPWitness;
 use crate::errors::WalletResult;
+use crate::models::ZKPWitness;
 
 const BLS12_381_SCALAR_FIELD_PRIME: &str =
     "52435875175126190479447740508185965837690552500527637822603658699938581184513";
 
 /// Native Rust payload passed to the Arkworks Prover runner binary / execution layer
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FastProverInputs {
+#[derive(Debug, Deserialize, Serialize, Zeroize)]
+#[zeroize(drop)]
+pub struct ProverInputPayload {
     pub user_clearance_level: u8,
     pub user_role_scalar: String,
     pub secret_nullifier: Vec<u8>,
     pub required_clearance_level: u8,
     pub public_commitment: Vec<u8>,
+}
+
+/// Dynamic proof and verification payload returned from prover execution
+#[derive(Debug, Deserialize, Serialize, Zeroize)]
+#[zeroize(drop)]
+pub struct ProverOutputResponse {
+    pub x_dzta_proof: String,
+    pub x_dzta_public_inputs: String,
+    pub sgx_dcap_quote_hex: Option<String>,
 }
 
 pub struct ZkpCore;
@@ -65,37 +75,39 @@ impl ZkpCore {
         hasher.finalize().into()
     }
 
-    /// Primary Entrypoint: Compiles a `ZKPWitness` into inputs for `RoleVerificationCircuit`
-    pub fn compile_fast_prover_inputs(
+    /// Compiles a `ZKPWitness` directly into a strongly-typed `ProverInputPayload`
+    pub fn compile_prover_payload(
         witness: &ZKPWitness,
         required_clearance: u8,
         secret_seed_bytes: &[u8],
-    ) -> WalletResult<Value> {
-        debug!("Compiling ZK witness into RoleVerification inputs");
-
-        // Derive 32-byte nullifier from subject_did + credential_id + secret seed
+    ) -> ProverInputPayload {
         let nullifier = Self::derive_nullifier(
             &witness.subject_did,
             &witness.credential_id,
             secret_seed_bytes,
         );
         let user_clearance = witness.clearance_level as u8;
-
-        // Hash user_role string into scalar string
         let role_scalar = Self::string_to_scalar(&witness.user_role_id);
-
-        // Compute algebraic commitment matching Arkworks R1CS constraint
         let commitment = Self::compute_commitment(&nullifier, user_clearance, &role_scalar);
 
-        let inputs = FastProverInputs {
+        ProverInputPayload {
             user_clearance_level: user_clearance,
             user_role_scalar: role_scalar,
             secret_nullifier: nullifier.to_vec(),
             required_clearance_level: required_clearance,
             public_commitment: commitment,
-        };
+        }
+    }
 
-        Ok(serde_json::to_value(inputs)?)
+    /// JSON Value wrapper for dynamic JSON consumption layers
+    pub fn compile_fast_prover_inputs(
+        witness: &ZKPWitness,
+        required_clearance: u8,
+        secret_seed_bytes: &[u8],
+    ) -> WalletResult<Value> {
+        debug!("Compiling ZK witness into RoleVerification inputs");
+        let payload = Self::compile_prover_payload(witness, required_clearance, secret_seed_bytes);
+        Ok(serde_json::to_value(payload)?)
     }
 
     // =========================================================================

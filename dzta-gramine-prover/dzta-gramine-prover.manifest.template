@@ -1,0 +1,34 @@
+libos.entrypoint = "/dzta-gramine-prover"
+loader.log_level = "error"
+
+# Include /usr/lib in the dynamic linker path
+loader.env.LD_LIBRARY_PATH = "/lib:{{ gramine.runtimedir() }}:/usr/lib"
+loader.env.RUST_LOG = "info"
+
+# Hardware Memory Settings
+sgx.enclave_size = "1024M"
+sgx.max_threads = 16
+sgx.remote_attestation = "dcap"
+
+# Root & File System Mounts
+fs.root.type = "chroot"
+fs.root.uri = "file:"
+
+fs.mounts = [
+  { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
+  { path = "/usr/lib", uri = "file:/usr/lib" },
+]
+
+# Integrity-Protected Enclave Files
+sgx.trusted_files = [
+  "file:{{ gramine.libos }}",
+  "file:{{ gramine.runtimedir() }}/",
+]
+
+# Allowed files for non-SGX direct mode
+sgx.allowed_files = [
+  "file:dzta-gramine-prover",
+  "file:/usr/lib/",
+  "file:/etc/resolv.conf",
+  "file:/etc/hosts",
+]

@@ -1,3 +1,4 @@
+// zkp-core-crypto/src/lib.rs
 #![no_std]
 
 use ark_ff::PrimeField;
@@ -10,6 +11,7 @@ use ark_relations::gr1cs::{ConstraintSynthesizer, ConstraintSystemRef, Synthesis
 
 /// RoleVerificationCircuit handles mathematical constraints inside the execution boundary.
 /// Enforces range checking and role-bound nullifier verification (~37-40 constraints).
+#[derive(Debug, Clone)]
 pub struct RoleVerificationCircuit<F: PrimeField> {
     // Private Witnesses
     pub user_clearance_level: Option<F>,

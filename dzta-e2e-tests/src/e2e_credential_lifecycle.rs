@@ -1,8 +1,6 @@
+// tests/e2e_credential_lifecycle.rs
 use std::sync::Arc;
 use log::{info, warn};
-
-
-
 use fabric_client::{
     FabricClient, CredentialManager, ZKPWitnessGenerator,
     ConnectionConfig, CredentialAttributes, SchemaAttribute,
@@ -183,5 +181,5 @@ async fn test_full_credential_lifecycle_e2e() {
         }
     }
 
-    info!("🎉 All decentralized identity (dZTA) infrastructure checks passed flawlessly!");
+    info!("All decentralized identity (dZTA) infrastructure checks passed flawlessly!");
 }

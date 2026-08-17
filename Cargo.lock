@@ -636,6 +636,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "base64"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
+
+[[package]]
 name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1230,6 +1236,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
+name = "dzta-e2e-tests"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-381",
+ "ark-ff",
+ "ark-groth16",
+ "ark-r1cs-std",
+ "ark-relations",
+ "ark-serialize",
+ "ark-snark",
+ "ark-std",
+ "chrono",
+ "dzta-edge-wasm",
+ "dzta-gramine-prover",
+ "dzta-protected-prover",
+ "env_logger 0.11.11",
+ "fabric-client",
+ "hex",
+ "log",
+ "num-bigint 0.5.1",
+ "num-traits",
+ "rand_chacha 0.3.1",
+ "serde",
+ "serde_json",
+ "shared",
+ "tokio",
+ "zkp-core-crypto",
+]
+
+[[package]]
 name = "dzta-edge-wasm"
 version = "0.1.0"
 dependencies = [
@@ -1242,6 +1278,32 @@ dependencies = [
  "proxy-wasm",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "dzta-gramine-prover"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ark-bls12-381",
+ "ark-ff",
+ "ark-groth16",
+ "ark-relations",
+ "ark-serialize",
+ "ark-snark",
+ "base64 0.23.1",
+ "hex",
+ "num-bigint 0.5.1",
+ "num-traits",
+ "rand_chacha 0.3.1",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "shared",
+ "tracing",
+ "tracing-subscriber",
+ "zeroize",
+ "zkp-core-crypto",
 ]
 
 [[package]]
@@ -3694,6 +3756,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ark-bls12-381",
+ "ark-ff",
+ "ark-groth16",
+ "ark-serialize",
+ "ark-snark",
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "env_logger 0.11.11",
+ "getrandom 0.2.17",
+ "hex",
+ "log",
+ "num-bigint 0.4.8",
+ "num-traits",
+ "openssl",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+ "zeroize",
 ]
 
 [[package]]

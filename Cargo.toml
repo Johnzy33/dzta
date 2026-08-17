@@ -1,3 +1,4 @@
+# Workspace configuration
 [workspace]
 members = [
     "zkp-core-crypto",
@@ -7,6 +8,9 @@ members = [
     "toxic-waste",
     "dzta-revocation-daemon",
     "fabric-client",
+    "dzta-gramine-prover",
+    "shared",
+    "dzta-e2e-tests",
 ]
 resolver = "2"
 

@@ -206,38 +206,7 @@ impl FabricRevocationListener {
         }
     }
 
-    /// Pushes the revoked ID to Envoy's local runtime admin memory endpoint.
-    // async fn sync_to_envoy_memory(&self, credential_id: &str) {
-    //     // Correct query format: /runtime_modify?revoked.<credential_id>=true
-    //     let url = format!(
-    //         "{}/runtime_modify?revoked.{}=true",
-    //         self.envoy_admin_url.trim_end_matches('/'),
-    //                       credential_id
-    //     );
 
-    //     let client = reqwest::Client::new();
-    //     // Increased timeout to 3 seconds to avoid false timeouts under container load
-    //     match client.post(&url).timeout(Duration::from_secs(3)).send().await {
-    //         Ok(res) if res.status().is_success() => {
-    //             info!(
-    //                 "[Layer 4 Daemon] Successfully injected revocation [{}] into Envoy Wasm runtime cache.",
-    //                 credential_id
-    //             );
-    //         }
-    //         Ok(res) => {
-    //             warn!(
-    //                 "[Layer 4 Daemon] Envoy runtime update request returned HTTP status: {}",
-    //                 res.status()
-    //             );
-    //         }
-    //         Err(e) => {
-    //             error!(
-    //                 "[Layer 4 Daemon] Failed to reach Envoy Admin API at {}: {:?}",
-    //                 url, e
-    //             );
-    //         }
-    //     }
-    // }
 
     /// Pushes the revoked ID to Envoy's local runtime admin memory endpoint with retries.
     async fn sync_to_envoy_memory(&self, credential_id: &str) {

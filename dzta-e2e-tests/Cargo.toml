@@ -1,0 +1,32 @@
+[package]
+name = "dzta-e2e-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fabric-client = { path = "../fabric-client" }
+dzta-edge-wasm = { path = "../dzta-edge-wasm" }
+dzta-gramine-prover = { path = "../dzta-gramine-prover" }
+dzta-protected-prover = { path = "../dzta-protected-prover" }
+zkp-core-crypto = { path = "../zkp-core-crypto" }
+shared = { path = "../shared" }
+
+log = "0.4.33"
+tokio = { version = "1.35", features = ["full"] }
+env_logger = "0.11.11"
+chrono = "0.4"
+
+ark-groth16 = "0.6.0"
+ark-relations = "0.6.0"
+ark-serialize = "0.6.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand_chacha = { version = "0.3.1", default-features = false }
+ark-bls12-381 = { version = "0.6", default-features = false, features = ["curve"] }
+ark-std = { version = "0.6.0", default-features = false }
+ark-snark = { version = "0.6", default-features = false }
+hex = "0.4"
+ark-ff = "0.6.0"
+ark-r1cs-std = "0.6.0"
+num-bigint = "0.5.1"
+num-traits = "0.2"
