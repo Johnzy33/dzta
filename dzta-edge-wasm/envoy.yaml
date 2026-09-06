@@ -1,3 +1,4 @@
+# This is a Kubernetes deployment manifest for the dzta-mec-edge-ingress application. k8s-mec-ingress.yaml
 admin:
   address:
     socket_address:

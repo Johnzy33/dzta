@@ -1,3 +1,4 @@
+// e2e_gramine_prover_lifecycle.rs
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_groth16::Groth16;
 use ark_serialize::CanonicalDeserialize;
@@ -125,39 +126,6 @@ async fn test_gramine_prover_lifecycle_e2e() {
     // STEP 5: GROTH16 PROOF VERIFICATION & BOUNDARY CHECKS
     // =================================================================
     info!("[E2E] Preparing Groth16 verifier key (loading or ephemeral setup)...");
-
-    // let vk_path = Path::new("keys/edge_verification_key.bin");
-    // let (pk, vk) = if vk_path.exists() {
-    //     info!("[E2E] Loading pre-generated verification key from `keys/edge_verification_key.bin`");
-    //     let mut vk_file = File::open(vk_path).expect("Failed to open verification key file");
-    //     let vk = ark_groth16::VerifyingKey::<Bls12_381>::deserialize_compressed(&mut vk_file)
-    //         .expect("Failed to deserialize verification key");
-
-    //     // Perform fast setup for local testing prover key
-    //     let mut rng = thread_rng();
-    //     let dummy_circuit = RoleVerificationCircuit::<Fr> {
-    //         user_clearance_level: None,
-    //         user_role_scalar: None,
-    //         secret_nullifier: None,
-    //         required_clearance_level: None,
-    //         public_commitment: None,
-    //     };
-    //     let (pk, _) = Groth16::<Bls12_381>::setup(dummy_circuit, &mut rng)
-    //         .expect("Failed to run local setup");
-    //     (pk, vk)
-    // } else {
-    //     warn!("[E2E] `keys/edge_verification_key.bin` not found. Generating ephemeral test keys...");
-    //     let mut rng = thread_rng();
-    //     let dummy_circuit = RoleVerificationCircuit::<Fr> {
-    //         user_clearance_level: None,
-    //         user_role_scalar: None,
-    //         secret_nullifier: None,
-    //         required_clearance_level: None,
-    //         public_commitment: None,
-    //     };
-    //     Groth16::<Bls12_381>::setup(dummy_circuit, &mut rng)
-    //         .expect("Failed to perform ephemeral Groth16 setup")
-    // };
 
     let vk_path = Path::new("keys/edge_verification_key.bin");
     let pk_path = Path::new("keys/proving_key.bin");

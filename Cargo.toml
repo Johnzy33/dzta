@@ -11,6 +11,7 @@ members = [
     "dzta-gramine-prover",
     "shared",
     "dzta-e2e-tests",
+    "transport-engine",
 ]
 resolver = "2"
 

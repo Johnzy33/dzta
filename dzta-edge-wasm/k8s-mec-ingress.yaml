@@ -14,13 +14,17 @@ spec:
         app: dzta-mec-edge-ingress
     spec:
       containers:
+      # Container 1: Envoy Proxy with Wasm ZKP Verifier
       - name: envoy-zkp-proxy
         image: dzta-registry.internal/edge/enforcer:v1.0.0
         command: ["envoy"]
         args: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "info"]
         ports:
         - containerPort: 10000
+          hostPort: 10000
           name: http-ingress
+        - containerPort: 9099
+          name: wasm-admin
         - containerPort: 9901
           name: envoy-admin
         resources:
@@ -41,19 +45,20 @@ spec:
           subPath: envoy.yaml
           name: envoy-config-volume
 
+      # Container 2: Fabric Revocation Daemon Sidecar
       - name: fabric-revocation-daemon
         image: dzta-registry.internal/edge/revocation-daemon:v1.0.0
         env:
         - name: FABRIC_PEER_ENDPOINT
           value: "grpcs://org1-peer1.test-network.svc.cluster.local:7051"
         - name: ENVOY_ADMIN_URL
-          value: "http://127.0.0.1:9901"
+          value: "http://127.0.0.1:9099"  # Targets Wasm loopback listener
+        - name: WASM_ADMIN_TOKEN
+          value: "dzta-secure-edge-admin-token-2026"
         resources:
           limits:
-            # cpu: "250m"
             memory: "128Mi"
           requests:
-            # cpu: "50m"
             memory: "64Mi"
 
       volumes:

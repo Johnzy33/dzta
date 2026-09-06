@@ -9,7 +9,7 @@ data:
       access_log_path: /dev/null
       address:
         socket_address:
-          address: 0.0.0.0
+          address: 127.0.0.1  # Locked down to local loopback for security
           port_value: 9901
 
     layered_runtime:
@@ -19,6 +19,7 @@ data:
 
     static_resources:
       listeners:
+      # 1. Main Public Ingress Listener
       - name: mec_edge_ingress
         address:
           socket_address:
@@ -39,8 +40,10 @@ data:
                   routes:
                   - match:
                       prefix: "/"
-                    route:
-                      cluster: internal_app_service
+                    direct_response:
+                      status: 200
+                      body:
+                        inline_string: '{"status":"accepted","message":"dZTA Upstream Mock OK"}'
 
               http_filters:
               # Layer 4 dZTA Wasm Enforcement Filter
@@ -50,6 +53,9 @@ data:
                   config:
                     name: "dzta_zkp_verifier"
                     root_id: ""
+                    configuration:
+                      "@type": type.googleapis.com/google.protobuf.StringValue
+                      value: '{"mode": "validate_only"}'
                     vm_config:
                       runtime: "envoy.wasm.runtime.v8"
                       vm_id: "dzta_vm"
@@ -57,6 +63,48 @@ data:
                         local:
                           filename: "/etc/envoy/dzta_edge_wasm.wasm"
                       allow_precompiled: false
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+      # 2. Private Wasm Admin Listener (Loopback for Fabric Daemon)
+      - name: wasm_admin_ingress
+        address:
+          socket_address:
+            address: 127.0.0.1
+            port_value: 9099
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: wasm_admin_http
+              route_config:
+                name: admin_route
+                virtual_hosts:
+                - name: wasm_admin
+                  domains: ["*"]
+                  routes:
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: internal_app_service
+              http_filters:
+              - name: envoy.filters.http.wasm
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                  config:
+                    name: "dzta_zkp_admin"
+                    root_id: ""
+                    configuration:
+                      "@type": type.googleapis.com/google.protobuf.StringValue
+                      value: '{"mode": "admin_enabled", "admin_token": "dzta-secure-edge-admin-token-2026"}'
+                    vm_config:
+                      runtime: "envoy.wasm.runtime.v8"
+                      vm_id: "dzta_vm"  # Shares memory state with the verifier
+                      code:
+                        local:
+                          filename: "/etc/envoy/dzta_edge_wasm.wasm"
               - name: envoy.filters.http.router
                 typed_config:
                   "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router

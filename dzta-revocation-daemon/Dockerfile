@@ -49,5 +49,5 @@ COPY dzta-edge-wasm/.env ./.env
 
 RUN chmod +x ./dzta-revocation-daemon
 
-EXPOSE 50051
+EXPOSE 50051 9099
 CMD ["./dzta-revocation-daemon"]

@@ -206,39 +206,46 @@ impl FabricRevocationListener {
         }
     }
 
-
-
     /// Pushes the revoked ID to Envoy's local runtime admin memory endpoint with retries.
+
+    /// Pushes the revoked ID to the private Wasm Admin endpoint with exponential backoff retries.
     async fn sync_to_envoy_memory(&self, credential_id: &str) {
         let url = format!(
-            "{}/runtime_modify?revoked.{}=true",
-            self.envoy_admin_url.trim_end_matches('/'),
+            "http://127.0.0.1:9099/_wasm_admin/revoke?id={}",
             credential_id
         );
 
         let client = reqwest::Client::new();
+        let admin_token = std::env::var("WASM_ADMIN_TOKEN")
+            .unwrap_or_else(|_| "dzta-secure-edge-admin-token-2026".to_string());
+
         let mut retries = 5;
         let mut delay = Duration::from_millis(500);
 
         while retries > 0 {
-            match client.post(&url).timeout(Duration::from_secs(5)).send().await {
+            let request = client
+                .post(&url)
+                .header("X-Wasm-Admin-Token", &admin_token)
+                .timeout(Duration::from_secs(5));
+
+            match request.send().await {
                 Ok(res) if res.status().is_success() => {
                     info!(
-                        "[Layer 4 Daemon] Successfully injected revocation [{}] into Envoy Wasm runtime cache.",
+                        "[Layer 4 Daemon] Successfully injected revocation [{}] into Wasm SharedData store.",
                         credential_id
                     );
                     return;
                 }
                 Ok(res) => {
                     warn!(
-                        "[Layer 4 Daemon] Envoy runtime update returned HTTP {}. Retrying in {}ms...",
+                        "[Layer 4 Daemon] Wasm Admin endpoint returned HTTP {}. Retrying in {}ms...",
                         res.status(),
                         delay.as_millis()
                     );
                 }
                 Err(e) => {
                     warn!(
-                        "[Layer 4 Daemon] Envoy Admin API not ready ({:?}). Retrying in {}ms... ({} attempts left)",
+                        "[Layer 4 Daemon] Failed to reach Wasm Admin endpoint ({:?}). Retrying in {}ms... ({} attempts left)",
                         e,
                         delay.as_millis(),
                         retries - 1
@@ -252,7 +259,7 @@ impl FabricRevocationListener {
         }
 
         error!(
-            "[Layer 4 Daemon] Permanent failure injecting revocation [{}] into Envoy.",
+            "[Layer 4 Daemon] Permanent failure injecting revocation [{}] into Wasm SharedData store.",
             credential_id
         );
     }
@@ -269,7 +276,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let chaincode_name = std::env::var("FABRIC_CHAINCODE").unwrap_or_else(|_| "dztac".to_string());
     let org_name = std::env::var("FABRIC_ORG").unwrap_or_else(|_| "Org1MSP".to_string());
     let peer_name = std::env::var("FABRIC_PEER").unwrap_or_else(|_| "org1-peer1".to_string());
-    let envoy_admin_url = std::env::var("ENVOY_ADMIN_URL").unwrap_or_else(|_| "http://127.0.0.1:9901".to_string());
+    let envoy_admin_url = std::env::var("ENVOY_ADMIN_URL").unwrap_or_else(|_| "http://127.0.0.1:9909".to_string());
 
     let fabric_client = FabricClient::new(
         &config_path,

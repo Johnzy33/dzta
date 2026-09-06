@@ -9,6 +9,7 @@ dzta-edge-wasm = { path = "../dzta-edge-wasm" }
 dzta-gramine-prover = { path = "../dzta-gramine-prover" }
 dzta-protected-prover = { path = "../dzta-protected-prover" }
 zkp-core-crypto = { path = "../zkp-core-crypto" }
+transport-engine = { path = "../transport-engine" }
 shared = { path = "../shared" }
 
 log = "0.4.33"
