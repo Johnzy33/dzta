@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    process::{Command},
-};
+use std::{fs, process::Command};
 
 #[derive(Debug, PartialEq)]
 pub enum VENDOR {
@@ -16,16 +13,6 @@ pub enum CPUARCH {
     ARM,
     X86,
     UNKNOWN,
-}
-
-impl From<u16> for CPUARCH {
-    fn from(value: u16) -> Self {
-        match value {
-            0 | 9 => CPUARCH::X86,  // 0 = x86 (32-bit), 9 = x64 (64-bit)
-            5 | 12 => CPUARCH::ARM, // 5 = ARM, 12 = ARM64
-            _ => CPUARCH::UNKNOWN,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -62,6 +49,12 @@ pub struct MacOSQueryResult {
     pub vendor: VENDOR,
 }
 
+#[derive(Debug)]
+pub struct AndroidQueryResult {
+    pub arch: CPUARCH,
+    pub vendor: VENDOR,
+}
+
 impl From<MacOSQueryResult> for PlatformInfo {
     fn from(value: MacOSQueryResult) -> Self {
         PlatformInfo {
@@ -92,6 +85,27 @@ impl From<LinuxQueryResult> for PlatformInfo {
     }
 }
 
+impl From<AndroidQueryResult> for PlatformInfo {
+    fn from(value: AndroidQueryResult) -> Self {
+        PlatformInfo {
+            operating_system: OS::LINUX,
+            vendor: value.vendor,
+            architecture: value.arch,
+        }
+    }
+}
+
+
+impl From<u16> for CPUARCH {
+    fn from(value: u16) -> Self {
+        match value {
+            0 | 9 => CPUARCH::X86,  // 0 = x86 (32-bit), 9 = x64 (64-bit)
+            5 | 12 => CPUARCH::ARM, // 5 = ARM, 12 = ARM64
+            _ => CPUARCH::UNKNOWN,
+        }
+    }
+}
+
 impl PlatformInfo {
     pub fn new() -> Self {
         if let Some(result) = Self::detect_windows() {
@@ -103,6 +117,10 @@ impl PlatformInfo {
         }
 
         if let Some(result) = Self::detect_macos() {
+            return result.into();
+        }
+
+        if let Some(result) = Self::detect_android() {
             return result.into();
         }
 
@@ -245,6 +263,59 @@ impl PlatformInfo {
         };
 
         Some(MacOSQueryResult { arch, vendor })
+    }
+
+    pub fn detect_android() -> Option<AndroidQueryResult> {
+        // 1. Detect Architecture via `uname -m`
+        let arch_output = Command::new("uname").arg("-m").output();
+        let arch = match arch_output {
+            Ok(out) if out.status.success() => {
+                let machine = String::from_utf8_lossy(&out.stdout).trim().to_lowercase();
+                match machine.as_str() {
+                    "aarch64" | "armv7l" | "armv8l" | "arm" => CPUARCH::ARM,
+                    "x86_64" | "i686" | "i386" => CPUARCH::X86,
+                    _ => CPUARCH::UNKNOWN,
+                }
+            }
+            _ => return None, // Fail fast if uname fails
+        };
+
+        // 2. Detect SoC / Vendor via `getprop ro.hardware` or /proc/cpuinfo
+        let mut vendor = VENDOR::UNKNOWN;
+
+        let prop_output = Command::new("getprop").arg("ro.hardware").output();
+        if let Ok(out) = prop_output {
+            if out.status.success() {
+                let hardware = String::from_utf8_lossy(&out.stdout).trim().to_lowercase();
+                if hardware.contains("intel") {
+                    vendor = VENDOR::INTEL;
+                } else if hardware.contains("amd") {
+                    vendor = VENDOR::AMD;
+                }
+            }
+        }
+
+        // Fallback to /proc/cpuinfo if getprop didn't yield a known vendor
+        if vendor == VENDOR::UNKNOWN {
+            if let Ok(content) = fs::read_to_string("/proc/cpuinfo") {
+                for line in content.lines() {
+                    if line.starts_with("vendor_id") || line.starts_with("Hardware") {
+                        if let Some((_, value)) = line.split_once(':') {
+                            let v = value.trim().to_lowercase();
+                            if v.contains("intel") {
+                                vendor = VENDOR::INTEL;
+                                break;
+                            } else if v.contains("amd") || v.contains("authenticamd") {
+                                vendor = VENDOR::AMD;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Some(AndroidQueryResult { arch, vendor })
     }
 }
 
