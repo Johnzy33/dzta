@@ -1,4 +1,7 @@
-use std::{process::Command};
+use std::{
+    fs,
+    process::{Command},
+};
 
 #[derive(Debug, PartialEq)]
 pub enum VENDOR {
@@ -47,10 +50,42 @@ pub struct WindowsQueryResult {
     pub vendor: VENDOR,
 }
 
+#[derive(Debug)]
+pub struct LinuxQueryResult {
+    pub arch: CPUARCH,
+    pub vendor: VENDOR,
+}
+
+#[derive(Debug)]
+pub struct MacOSQueryResult {
+    pub arch: CPUARCH,
+    pub vendor: VENDOR,
+}
+
+impl From<MacOSQueryResult> for PlatformInfo {
+    fn from(value: MacOSQueryResult) -> Self {
+        PlatformInfo {
+            operating_system: OS::MACOS,
+            vendor: value.vendor,
+            architecture: value.arch,
+        }
+    }
+}
+
 impl From<WindowsQueryResult> for PlatformInfo {
     fn from(value: WindowsQueryResult) -> Self {
         PlatformInfo {
             operating_system: OS::WINDOWS,
+            vendor: value.vendor,
+            architecture: value.arch,
+        }
+    }
+}
+
+impl From<LinuxQueryResult> for PlatformInfo {
+    fn from(value: LinuxQueryResult) -> Self {
+        PlatformInfo {
+            operating_system: OS::LINUX,
             vendor: value.vendor,
             architecture: value.arch,
         }
@@ -63,6 +98,14 @@ impl PlatformInfo {
             return result.into();
         }
 
+        if let Some(result) = Self::detect_linux() {
+            return result.into();
+        }
+
+        if let Some(result) = Self::detect_macos() {
+            return result.into();
+        }
+
         PlatformInfo {
             operating_system: OS::UNKNOWN,
             vendor: VENDOR::UNKNOWN,
@@ -71,8 +114,6 @@ impl PlatformInfo {
     }
 
     pub fn detect_windows() -> Option<WindowsQueryResult> {
-        // QUERY "Win32_Processor" class.
-
         let output = Command::new("powershell")
             .args([
                 "-NoProfile",
@@ -104,6 +145,106 @@ impl PlatformInfo {
             }
             _ => None,
         }
+    }
+
+    pub fn detect_linux() -> Option<LinuxQueryResult> {
+        let content = fs::read_to_string("/proc/cpuinfo").ok()?;
+
+        let mut vendor = VENDOR::UNKNOWN;
+
+        // 1. Detect Vendor from /proc/cpuinfo
+        for line in content.lines() {
+            // Check x86/x86_64 key
+            if line.starts_with("vendor_id") {
+                if let Some((_, value)) = line.split_once(':') {
+                    let v = value.trim().to_lowercase();
+                    if v.contains("intel") {
+                        vendor = VENDOR::INTEL;
+                        break;
+                    } else if v.contains("amd") || v.contains("authenticamd") {
+                        vendor = VENDOR::AMD;
+                        break;
+                    }
+                }
+            }
+            // Check ARM key (ARM chips use 'CPU implementer' or 'model name')
+            else if line.starts_with("CPU implementer") || line.starts_with("model name") {
+                if let Some((_, value)) = line.split_once(':') {
+                    let v = value.trim().to_lowercase();
+                    if v.contains("intel") {
+                        vendor = VENDOR::INTEL;
+                        break;
+                    } else if v.contains("amd") {
+                        vendor = VENDOR::AMD;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. Detect Architecture via `uname -m`
+        let arch_output = Command::new("uname").arg("-m").output();
+        let arch = match arch_output {
+            Ok(out) if out.status.success() => {
+                let machine = String::from_utf8_lossy(&out.stdout).trim().to_lowercase();
+                match machine.as_str() {
+                    "x86_64" | "i686" | "i386" => CPUARCH::X86,
+                    "aarch64" | "armv7l" | "armv8l" | "arm" => CPUARCH::ARM,
+                    _ => CPUARCH::UNKNOWN,
+                }
+            }
+            _ => CPUARCH::UNKNOWN,
+        };
+
+        Some(LinuxQueryResult { arch, vendor })
+    }
+
+    pub fn detect_macos() -> Option<MacOSQueryResult> {
+        // 1. Detect Architecture via `uname -m`
+        let arch_output = Command::new("uname").arg("-m").output();
+        let arch = match arch_output {
+            Ok(out) if out.status.success() => {
+                let machine = String::from_utf8_lossy(&out.stdout).trim().to_lowercase();
+                match machine.as_str() {
+                    "x86_64" | "i686" | "i386" => CPUARCH::X86,
+                    "arm64" | "aarch64" | "armv7l" | "armv8l" | "arm" => CPUARCH::ARM,
+                    _ => CPUARCH::UNKNOWN,
+                }
+            }
+            _ => return None, // Fail fast if uname is not available or fails
+        };
+
+        // 2. Detect Vendor via `sysctl -n machdep.cpu.brand_string`
+        let vendor_output = Command::new("sysctl")
+            .args(["-n", "machdep.cpu.brand_string"])
+            .output();
+
+        let vendor = match vendor_output {
+            Ok(out) if out.status.success() => {
+                let v = String::from_utf8_lossy(&out.stdout).trim().to_lowercase();
+
+                if v.contains("intel") {
+                    VENDOR::INTEL
+                } else if v.contains("amd") {
+                    VENDOR::AMD
+                } else if v.is_empty() && arch == CPUARCH::ARM {
+                    // On Apple Silicon (M1/M2/M3/M4), `machdep.cpu.brand_string` returns an empty string or fails
+                    VENDOR::MSERIES
+                } else {
+                    VENDOR::UNKNOWN
+                }
+            }
+            _ => {
+                // Fallback for Apple Silicon when the key doesn't exist
+                if arch == CPUARCH::ARM {
+                    VENDOR::MSERIES
+                } else {
+                    VENDOR::UNKNOWN
+                }
+            }
+        };
+
+        Some(MacOSQueryResult { arch, vendor })
     }
 }
 
