@@ -1,5 +1,4 @@
-use std::{env::consts::OS, process::Command};
-
+use std::{process::Command};
 
 #[derive(Debug, PartialEq)]
 pub enum VENDOR {
@@ -48,8 +47,22 @@ pub struct WindowsQueryResult {
     pub vendor: VENDOR,
 }
 
+impl From<WindowsQueryResult> for PlatformInfo {
+    fn from(value: WindowsQueryResult) -> Self {
+        PlatformInfo {
+            operating_system: OS::WINDOWS,
+            vendor: value.vendor,
+            architecture: value.arch,
+        }
+    }
+}
+
 impl PlatformInfo {
     pub fn new() -> Self {
+        if let Some(result) = Self::detect_windows() {
+            return result.into();
+        }
+
         PlatformInfo {
             operating_system: OS::UNKNOWN,
             vendor: VENDOR::UNKNOWN,
@@ -58,7 +71,8 @@ impl PlatformInfo {
     }
 
     pub fn detect_windows() -> Option<WindowsQueryResult> {
-        // WQL syntax fix: Removed trailing comma after Manufacturer
+        // QUERY "Win32_Processor" class.
+
         let output = Command::new("powershell")
             .args([
                 "-NoProfile",
@@ -104,8 +118,3 @@ fn extract_json_field(json: &str, field: &str) -> Option<String> {
             .to_string(),
     )
 }
-
-// fn main() {
-//     let info = PlatformInfo::new();
-//     println!("{:#?}", info);
-// }
