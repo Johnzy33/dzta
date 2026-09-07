@@ -205,14 +205,28 @@ async fn test_full_dzta_stack_e2e_pipeline() {
 
     let response: ProverOutputResponse = if binary_exists {
         info!("[L3] Unsealing encrypted record and generating Groth16 proof inside Gramine enclave...");
-        proxy
-            .prove_raw_wallet_record_in_gramine(
-                raw_wallet_ciphertext.clone(),
-                wallet_db_key.clone(),
-                required_clearance_level,
-                master_seed,
-            )
-            .expect("Gramine proof execution failed")
+        if proxy.is_hardware_backed() {
+            proxy
+                .prove_confidential_wallet_record_in_gramine(
+                    raw_wallet_ciphertext.clone(),
+                    Some(credential_id.clone()),
+                    required_clearance_level,
+                )
+                .expect("Confidential Gramine proof execution failed")
+        } else {
+            warn!(
+                "[L3 SECURITY WARNING] SGX is unavailable; using direct mode. Credential secrets are visible to the host in this compatibility path."
+            );
+            proxy
+                .prove_raw_wallet_record_in_gramine(
+                    raw_wallet_ciphertext.clone(),
+                    wallet_db_key.clone(),
+                    Some(credential_id.clone()),
+                    required_clearance_level,
+                    master_seed,
+                )
+                .expect("Direct Gramine proof execution failed")
+        }
     } else {
         warn!(
             "[L3] Prover binary missing at `{}`. Executing in-process ZkpCore unsealing fallback...",
