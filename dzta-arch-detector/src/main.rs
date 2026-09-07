@@ -6,7 +6,9 @@ fn main() {
 
     let info = PlatformInfo::new();
 
-    println!("{:#?}", info);
+    let enclave = info.detect_enclave();
+
+    println!("{:#?}\n Available Enclave: {:?}", info, enclave);
 
     println!("Press Enter to exit...");
     let mut input = String::new();
