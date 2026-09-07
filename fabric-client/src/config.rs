@@ -1,4 +1,4 @@
-// src/config.rs
+// fabric-client/src/config.rs
 use serde::{Deserialize, Serialize};
 use crate::errors::{WalletError, WalletResult};
 use std::collections::HashMap;

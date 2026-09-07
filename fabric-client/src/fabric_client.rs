@@ -1,4 +1,4 @@
-// src/fabric_client.rs
+// fabric-client/src/fabric_client.rs
 use crate::config::{ConnectionConfig, UserContext};
 use crate::errors::{WalletError, WalletResult};
 use crate::models::*;
