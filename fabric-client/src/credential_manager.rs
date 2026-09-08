@@ -1,4 +1,5 @@
-// src/credential_manager.rs
+
+// fabric-client/src/credential_manager.rs
 use crate::errors::{WalletError, WalletResult};
 use crate::models::*;
 use crate::fabric_client::FabricClient;
@@ -9,11 +10,13 @@ use std::sync::Arc;
 use aries_askar::{Store, StoreKeyMethod};
 use aries_askar::entry::EntryTag;
 use getrandom;
+use shared::zkp_core::{decrypt_wallet_record, encrypt_wallet_record};
 
 pub struct CredentialManager {
     pub fabric_client: FabricClient,
     pub askar_store_path: String,
     pub askar_store: Arc<tokio::sync::RwLock<Option<Store>>>,
+    askar_passphrase: Arc<tokio::sync::RwLock<Option<String>>>,
 }
 
 impl CredentialManager {
@@ -25,7 +28,38 @@ impl CredentialManager {
             fabric_client,
             askar_store_path: askar_store_path.to_string(),
             askar_store: Arc::new(tokio::sync::RwLock::new(None)),
+            askar_passphrase: Arc::new(tokio::sync::RwLock::new(None)),
         }
+    }
+
+    /// Retrieve the application-encrypted credential envelope from Askar.
+    pub async fn fetch_raw_encrypted_record(&self, credential_id: &str) -> WalletResult<Vec<u8>> {
+        debug!("Fetching raw encrypted store record from Askar: {}", credential_id);
+
+        let store_lock = self.askar_store.read().await;
+        let store = store_lock.as_ref()
+            .ok_or_else(|| WalletError::StorageError("Askar store not initialized".to_string()))?;
+
+        let mut session = store.session(None)
+            .await
+            .map_err(|e| WalletError::StorageError(format!("Session creation failed: {}", e)))?;
+
+        let entry = session.fetch("credentials", credential_id, false)
+            .await
+            .map_err(|e| WalletError::StorageError(format!("Raw record retrieval failed: {}", e)))?
+            .ok_or_else(|| WalletError::CredentialNotFound(credential_id.to_string()))?;
+
+        // Askar decrypts its database page, but this value remains application-encrypted.
+        Ok(entry.value.to_vec())
+    }
+
+    /// Retrieve active store passphrase/key material for enclave ingestion payload
+    pub async fn get_askar_passphrase(&self) -> WalletResult<Vec<u8>> {
+        let lock = self.askar_passphrase.read().await;
+        let pass = lock.as_ref().ok_or_else(|| {
+            WalletError::StorageError("Askar store passphrase not cached".to_string())
+        })?;
+        Ok(pass.as_bytes().to_vec())
     }
 
     /// Create and store a new credential (issuer side)
@@ -161,6 +195,9 @@ impl CredentialManager {
         let mut store_lock = self.askar_store.write().await;
         *store_lock = Some(store);
 
+        let mut pass_lock = self.askar_passphrase.write().await;
+        *pass_lock = Some(pass_key.to_string());
+
         info!("Askar store initialized successfully");
         Ok(())
     }
@@ -192,7 +229,6 @@ impl CredentialManager {
 
         Ok(credential)
     }
-
 
     pub async fn get_credential_metadata_from_askar(
         &self,
@@ -396,7 +432,6 @@ impl CredentialManager {
 
     // ============ Private Askar Methods ============
 
-
     async fn store_credential_in_askar(
         &self,
         credential_id: &str,
@@ -408,8 +443,12 @@ impl CredentialManager {
         let store = store_lock.as_ref()
             .ok_or_else(|| WalletError::StorageError("Askar store not initialized".to_string()))?;
 
-        // Serialize credential to string
+        // Encrypt the credential before storing it so Askar's decrypted entry value
+        // is still opaque to callers that only need to forward it to the enclave.
         let credential_json = credential_data.to_string();
+        let passphrase = self.get_askar_passphrase().await?;
+        let encrypted_record = encrypt_wallet_record(credential_json.as_bytes(), &passphrase)
+            .map_err(|e| WalletError::StorageError(e.to_string()))?;
 
         // Create a session for the transaction
         let mut session = store.session(None)
@@ -425,13 +464,12 @@ impl CredentialManager {
         ];
 
         // Store the credential with metadata
-        // Format: category/name pairs for organization
         session.insert(
-            "credentials",  // category
-            credential_id,  // name/key
-            &credential_json.as_bytes(),  // value
-            Some(&tags),  // tags/metadata
-            None,  // no secret
+            "credentials",
+            credential_id,
+            &encrypted_record,
+            Some(&tags),
+            None,
         )
         .await
         .map_err(|e| {
@@ -450,8 +488,6 @@ impl CredentialManager {
         debug!("Credential stored successfully in Askar: {}", credential_id);
         Ok(())
     }
-
-
 
     async fn retrieve_credential_from_askar(
         &self,
@@ -473,9 +509,9 @@ impl CredentialManager {
 
         // Retrieve the credential entry
         let entry = session.fetch(
-            "credentials",  // category
-            credential_id,  // name/key
-            false,  // not_secret
+            "credentials",
+            credential_id,
+            false,
         )
         .await
         .map_err(|e| {
@@ -487,13 +523,15 @@ impl CredentialManager {
             WalletError::StorageError(format!("Credential not found: {}", credential_id))
         })?;
 
-        let credential_data: Value = serde_json::from_slice(&entry.value)
+        let passphrase = self.get_askar_passphrase().await?;
+        let cleartext = decrypt_wallet_record(&entry.value, &passphrase)
+            .map_err(|e| WalletError::StorageError(e.to_string()))?;
+        let credential_data: Value = serde_json::from_slice(&cleartext)
             .map_err(|e| WalletError::StorageError(format!("Deserialization failed: {}", e)))?;
 
         debug!("Credential retrieved successfully from Askar: {}", credential_id);
         Ok(credential_data)
     }
-
 
     async fn mark_credential_revoked_in_askar(
         &self,
@@ -527,17 +565,15 @@ impl CredentialManager {
             WalletError::StorageError(format!("Credential not found: {}", credential_id))
         })?;
 
-        
         let updated_tags = vec![
             EntryTag::Plaintext("revoked".to_string(), "true".to_string()),
             EntryTag::Plaintext("revoked_at".to_string(), chrono::Utc::now().to_rfc3339()),
         ];
 
-        // Fixed: Use entry.value() to get the underlying byte slice
         session.replace(
             "credentials",
             credential_id,
-            &entry.value,  // Correct way to access payload bytes
+            &entry.value,
             Some(&updated_tags),
             None,
         )

@@ -5,6 +5,7 @@ edition = "2021"
 
 
 [dependencies]
+shared = { path = "../shared" }
 
 # Fabric SDK
 fabric-sdk = { version = "0.5.8" }

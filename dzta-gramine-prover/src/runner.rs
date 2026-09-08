@@ -1,12 +1,11 @@
 // dzta-gramine-prover/src/runner.rs
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
+use shared::zkp_core::{AttestationRequest, AttestationResponse, EnclaveIngestionPayload, ProverOutputResponse};
+use std::io::{BufRead, BufReader};
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use tracing::{error, info, warn};
-use zeroize::Zeroize;
-use shared::zkp_core::{ProverInputPayload, ProverOutputResponse};
 
 /// Gramine runtime execution target mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -20,6 +19,10 @@ pub enum ExecutionMode {
 }
 
 impl ExecutionMode {
+    pub fn is_hardware_backed(self) -> bool {
+        matches!(self.resolve(), "gramine-sgx")
+    }
+
     pub fn resolve(self) -> &'static str {
         match self {
             ExecutionMode::Direct => "gramine-direct",
@@ -53,8 +56,62 @@ impl GramineProverRunner {
         }
     }
 
-    /// Spawns `gramine-direct` or `gramine-sgx`, streams payload to stdin, and returns output envelope
-    pub fn execute_proof(&self, payload: &ProverInputPayload) -> Result<ProverOutputResponse> {
+    pub fn is_hardware_backed(&self) -> bool {
+        self.mode.is_hardware_backed()
+    }
+
+    pub fn execute_confidential_proof(
+        &self,
+        payload: &EnclaveIngestionPayload,
+        broker_url: &str,
+    ) -> Result<ProverOutputResponse> {
+        let runner_binary = self.mode.resolve();
+        let target_file_path = Path::new(&self.target_path);
+        let working_dir = target_file_path.parent().unwrap_or_else(|| Path::new("."));
+        let binary_name = target_file_path.file_name().unwrap_or_else(|| target_file_path.as_os_str());
+        let mut child = Command::new(runner_binary)
+            .arg(binary_name)
+            .current_dir(working_dir)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .with_context(|| format!("Failed to spawn `{runner_binary}` executable"))?;
+
+        let mut stdin = child.stdin.take().context("Failed to open enclave stdin")?;
+        let mut stdout = BufReader::new(child.stdout.take().context("Failed to open enclave stdout")?);
+        let initial = serde_json::to_string(payload)?;
+        writeln!(stdin, "{initial}")?;
+        stdin.flush()?;
+
+        let mut request_line = String::new();
+        stdout.read_line(&mut request_line)?;
+        let request: AttestationRequest = serde_json::from_str(request_line.trim())
+            .context("Enclave did not produce an attestation request")?;
+        let response = reqwest::blocking::Client::new()
+            .post(broker_url)
+            .json(&request)
+            .send()
+            .context("Failed to contact dZTA attestation broker")?
+            .error_for_status()
+            .context("Attestation broker rejected the enclave")?
+            .json::<AttestationResponse>()
+            .context("Invalid attestation broker response")?;
+        writeln!(stdin, "{}", serde_json::to_string(&response)?)?;
+        stdin.flush()?;
+
+        let mut output_line = String::new();
+        stdout.read_line(&mut output_line)?;
+        drop(stdin);
+        let output = child.wait_with_output().context("Failed waiting for enclave")?;
+        if !output.status.success() {
+            anyhow::bail!("Confidential Gramine execution failed: {}", String::from_utf8_lossy(&output.stderr));
+        }
+        serde_json::from_str(output_line.trim()).context("Invalid proof response from enclave")
+    }
+
+    /// Spawns `gramine-direct` or `gramine-sgx`, streams raw encrypted ingestion payload to stdin, and returns output envelope
+    pub fn execute_proof(&self, payload: &EnclaveIngestionPayload) -> Result<ProverOutputResponse> {
         let runner_binary = self.mode.resolve();
         info!("[Runner] Spawning `{}` for target: {}", runner_binary, self.target_path);
 
@@ -73,13 +130,14 @@ impl GramineProverRunner {
             .current_dir(working_dir) // Sets CWD to target/release/
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
+            // .stderr(Stdio::inherit())
+            .stderr(Stdio::piped()) // <-- Change from inherit() to piped()
             .spawn()
             .with_context(|| format!("Failed to spawn `{runner_binary}` executable. Ensure Gramine is installed in PATH."))?;
 
-        // 2. Serialize payload to JSON and write to child stdin
+        // 2. Serialize encrypted ingestion payload to JSON and write to child stdin
         let payload_json = serde_json::to_vec(payload)
-            .context("Failed to serialize ProverInputPayload to JSON")?;
+            .context("Failed to serialize EnclaveIngestionPayload to JSON")?;
 
         if let Some(mut stdin) = child.stdin.take() {
             stdin.write_all(&payload_json)
@@ -89,12 +147,30 @@ impl GramineProverRunner {
         }
 
         // 3. Wait for execution to complete
+        // let output = child.wait_with_output()
+        //     .context("Failed while waiting for Gramine process execution")?;
+
+        // if !output.status.success() {
+        //     error!("[Runner] Gramine process exited with error code: {:?}", output.status.code());
+        //     anyhow::bail!("Gramine execution failed with exit status: {}", output.status);
+        // }
+
+        // 3. Wait for execution to complete
         let output = child.wait_with_output()
             .context("Failed while waiting for Gramine process execution")?;
 
         if !output.status.success() {
+            // Read what the enclave actually complained about
+            let enclave_stderr = String::from_utf8_lossy(&output.stderr);
+            
             error!("[Runner] Gramine process exited with error code: {:?}", output.status.code());
-            anyhow::bail!("Gramine execution failed with exit status: {}", output.status);
+            error!("[Runner] Enclave Panic/Stderr output:\n{}", enclave_stderr);
+            
+            anyhow::bail!(
+                "Gramine execution failed with exit status: {}\nEnclave Error Log:\n{}", 
+                output.status, 
+                enclave_stderr
+            );
         }
 
         // 4. Parse stdout into ProverOutputResponse by extracting the JSON line

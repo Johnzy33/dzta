@@ -8,9 +8,10 @@ use ark_snark::SNARK;
 use sha2::{Digest, Sha256};
 
 use shared::errors::{WalletError, WalletResult};
-use shared::models::{VerificationReceipt, ZKPWitness};
-use shared::zkp_core::{ProverOutputResponse, ZkpCore};
+use shared::models::VerificationReceipt;
+use shared::zkp_core::{EnclaveIngestionPayload, ProverOutputResponse};
 
+use crate::attestation::GramineAttestationDriver;
 use crate::runner::{ExecutionMode, GramineProverRunner};
 
 pub struct GramineExecutionProxy {
@@ -24,17 +25,55 @@ impl GramineExecutionProxy {
         }
     }
 
-    /// Compiles witness parameters via ZkpCore, dispatches execution to Gramine, and returns envelope response
-    pub fn prove_witness_in_gramine(
-        &self,
-        witness: &ZKPWitness,
-        required_clearance: u8,
-        secret_seed: &[u8],
-    ) -> WalletResult<ProverOutputResponse> {
-        // Delegate payload compilation to ZkpCore
-        let payload = ZkpCore::compile_prover_payload(witness, required_clearance, secret_seed);
+    pub fn is_hardware_backed(&self) -> bool {
+        self.runner.is_hardware_backed()
+    }
 
-        // Execute via GramineProverRunner
+    /// Runs the confidential prover only after a real attested secret-provisioning
+    /// channel has been configured. Passing secrets through host stdin is not
+    /// confidential, even when the child process runs under SGX.
+    pub fn prove_confidential_wallet_record_in_gramine(
+        &self,
+        raw_wallet_ciphertext: Vec<u8>,
+        credential_id: Option<String>,
+        required_clearance: u64,
+    ) -> WalletResult<ProverOutputResponse> {
+        if !self.is_hardware_backed() || !GramineAttestationDriver::is_provisioning_capable() {
+            return Err(WalletError::ExecutionFailed(
+                "Confidential proving requires hardware SGX and Gramine attestation devices".to_string(),
+            ));
+        }
+        let payload = EnclaveIngestionPayload {
+            raw_wallet_ciphertext,
+            wallet_db_key: None,
+            credential_id,
+            required_clearance_level: required_clearance,
+            master_seed: None,
+        };
+        let broker_url = std::env::var("DZTA_ATTESTATION_BROKER_URL")
+            .map_err(|_| WalletError::ExecutionFailed("DZTA_ATTESTATION_BROKER_URL is not configured".to_string()))?;
+        self.runner.execute_confidential_proof(&payload, &broker_url).map_err(|e| {
+            WalletError::ExecutionFailed(format!("Confidential Gramine proof execution failed: {e:#}"))
+        })
+    }
+
+    /// Dispatches raw encrypted wallet record and store keys to Gramine TEE for direct unsealing and proving
+    pub fn prove_raw_wallet_record_in_gramine(
+        &self,
+        raw_wallet_ciphertext: Vec<u8>,
+        wallet_db_key: Vec<u8>,
+        credential_id: Option<String>,
+        required_clearance: u64,
+        master_seed: [u8; 32],
+    ) -> WalletResult<ProverOutputResponse> {
+        let payload = EnclaveIngestionPayload {
+            raw_wallet_ciphertext,
+            wallet_db_key: Some(wallet_db_key),
+            credential_id,
+            required_clearance_level: required_clearance,
+            master_seed: Some(master_seed),
+        };
+
         self.runner.execute_proof(&payload).map_err(|e| {
             WalletError::ExecutionFailed(format!("Gramine proof execution failed: {e:#}"))
         })

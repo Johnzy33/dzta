@@ -1,4 +1,4 @@
-// src/models.rs
+// shared/src/models.rs
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 // use uuid::Uuid;
