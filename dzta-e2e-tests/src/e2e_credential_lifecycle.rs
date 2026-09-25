@@ -1,10 +1,10 @@
 // tests/e2e_credential_lifecycle.rs
 use std::sync::Arc;
 use log::{info, warn};
-use fabric_client::{
-    FabricClient, CredentialManager, ZKPWitnessGenerator,
-    ConnectionConfig, CredentialAttributes, SchemaAttribute,
-};
+use fabric_client::{FabricClient, ConnectionConfig};
+use dzta_issuer::{Issuer, LocalCredentialSigner};
+use dzta_wallet::Wallet;
+use shared::{CredentialAttributes, SchemaAttribute};
 
 
 #[tokio::test]
@@ -53,14 +53,15 @@ async fn test_full_credential_lifecycle_e2e() {
         let _ = std::fs::remove_file(askar_db_path);
     }
 
-    let cred_manager = Arc::new(CredentialManager::new(
-        fabric_client.clone(),
-        askar_db_path
-    ));
+    let wallet = Arc::new(Wallet::new(askar_db_path));
+    let signer = LocalCredentialSigner::generate().expect("Failed to generate credential signing key");
+    let issuer_pubkey = signer.public_key_multibase_value();
+    let issuer_signing_key = signer.public_key_bytes();
+    let issuer = Issuer::new(fabric_client.clone(), signer);
     
     // Initialize the secure envelope store using Argon2i key derivation
-    cred_manager
-        .initialize_askar_store("super_secure_passphrase_123")
+    wallet
+        .initialize("super_secure_passphrase_123")
         .await
         .expect("Failed to initialize secure Aries Askar local database instance");
 
@@ -69,38 +70,28 @@ async fn test_full_credential_lifecycle_e2e() {
     // =================================================================
     info!("Generating cryptographic identities via local node environment metrics...");
 
-    let config_guard = fabric_client.config.read().await.clone();
-    let user_context = config_guard.get_user_context()
-        .expect("Failed to load user context profile metadata");
-    
-    // Generate deterministic DID for the Issuer using node hash derivations
-    let issuer_did = cred_manager.fabric_client.generate_did();
-    
-    // --- MODIFICATION HERE: Parse the certificate content instead of using the path string ---
-    let cert_path = user_context.get_cert_pem(); 
-    let cert_bytes = std::fs::read(&cert_path)
-        .unwrap_or_else(|_| panic!("Failed to read certificate from path: {}", cert_path));
-    let issuer_pubkey_pem = String::from_utf8(cert_bytes)
-        .expect("Certificate file does not contain valid UTF-8 sequences");
+    let issuer_did = fabric_client
+        .generate_did_from_public_key(&issuer_signing_key)
+        .expect("Failed to generate issuer DID from public key");
     
     // Assign a distinct identifier for the Subject edge wallet
     let subject_did = "did:dzta:user-nathaniel-777";
     let subject_pubkey = "ed25519_public_key_bytes_for_subject_placeholder";
 
     info!("Registering generated Issuer identity document on ledger: {}", issuer_did);
-    cred_manager.fabric_client
-        .register_did(&issuer_did, &issuer_did, &issuer_pubkey_pem)
+    issuer
+        .register_did(&issuer_did, &issuer_did, &issuer_pubkey)
         .await
         .expect("Failed to register Issuer identity document");
 
     info!("Registering Subject identity document on ledger: {}", subject_did);
-    cred_manager.fabric_client
+    issuer
         .register_did(subject_did, &issuer_did, subject_pubkey)
         .await
         .expect("Failed to register Subject identity document");
 
     // Assert identity resolution works before building schema contexts
-    let resolved_doc = cred_manager.fabric_client.resolve_did(&issuer_did).await
+    let resolved_doc = fabric_client.resolve_did(&issuer_did).await
         .expect("Failed to resolve newly registered DID document from Fabric world state");
         
     info!("✓ Identity resolution check confirmed active for: {}", resolved_doc.did);
@@ -119,7 +110,7 @@ async fn test_full_credential_lifecycle_e2e() {
     ];
 
     info!("Registering schema structure mapping directly to Go chaincode state table...");
-    let schema_id = cred_manager
+    let schema_id = issuer
         .register_schema(&issuer_did, schema_name, schema_version, &schema_attributes)
         .await
         .expect("Schema registration execution pipeline failed");
@@ -140,10 +131,14 @@ async fn test_full_credential_lifecycle_e2e() {
     let expires_at_unix = chrono::Utc::now().timestamp() + (24 * 60 * 60);
 
     info!("Validating structural attributes and creating W3C verifiable credential...");
-    let stored_credential = cred_manager
+    let stored_credential = issuer
         .create_credential(&schema_id, &issuer_did, subject_did, &credential_payload, expires_at_unix)
         .await
         .expect("Failed to execute credential template parsing or Fabric metadata anchor logging");
+    wallet
+        .store_credential(&stored_credential.credential_id, &stored_credential.credential_data)
+        .await
+        .expect("Failed to deliver credential to holder wallet");
 
     let target_credential_id = stored_credential.credential_id.clone();
     info!("Verifiable Credential securely written to local Askar and anchored on ledger. ID: {}", target_credential_id);
@@ -152,7 +147,7 @@ async fn test_full_credential_lifecycle_e2e() {
     // STEP 6: READ-SIDE BLOCKCHAIN VERIFICATION (ZERO-TRUST VALIDATION)
     // =================================================================
     info!("Executing ledger active verification loop for Credential ID: {}...", target_credential_id);
-    let validation_result = cred_manager
+    let validation_result = fabric_client
         .verify_credential_active(&target_credential_id)
         .await
         .expect("Zero-trust validation verification loop encountered an unexpected processing error");
@@ -164,13 +159,13 @@ async fn test_full_credential_lifecycle_e2e() {
     // STEP 7: REVOCATION LIFECYCLE MUTATION
     // =================================================================
     info!("Triggering administrative ledger revocation request for Credential ID: {}...", target_credential_id);
-    cred_manager
+    issuer
         .revoke_credential(&target_credential_id)
         .await
         .expect("Administrative chain code modification failed during revocation routing");
 
     info!("Revocation execution completed. Running post-revocation zero-trust fallback validation...");
-    let post_revocation_check = cred_manager.verify_credential_active(&target_credential_id).await;
+    let post_revocation_check = fabric_client.verify_credential_active(&target_credential_id).await;
 
     match post_revocation_check {
         Err(fabric_client::errors::WalletError::RevocationError(msg)) => {

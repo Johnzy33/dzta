@@ -1,0 +1,20 @@
+[package]
+name = "dzta-issuer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+shared = { path = "../shared" }
+fabric-client = { path = "../fabric-client" }
+chrono = "0.4"
+async-trait = "0.1.77"
+base64 = "0.22.1"
+ed25519-dalek = "2.1"
+getrandom = "0.2.10"
+multibase = "0.9"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde_jcs = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.23.4", features = ["v4", "serde"] }
+zeroize = { version = "1.5", features = ["zeroize_derive"] }

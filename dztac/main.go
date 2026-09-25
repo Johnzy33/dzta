@@ -38,10 +38,20 @@ type CredentialMetadata struct {
 }
 
 type DIDDocument struct {
-	ID             string   `json:"id"`
-	PublicKey      string   `json:"public_key"`
-	Authentication []string `json:"authentication"`
-	IssuerDID      string   `json:"issuer_did"`
+	Context            []string             `json:"@context,omitempty"`
+	ID                 string               `json:"id"`
+	PublicKey          string               `json:"public_key"` // Legacy compatibility field
+	VerificationMethod []VerificationMethod `json:"verificationMethod"`
+	Authentication     []string             `json:"authentication"`
+	AssertionMethod    []string             `json:"assertionMethod"`
+	IssuerDID          string               `json:"issuer_did"`
+}
+
+type VerificationMethod struct {
+	ID                 string `json:"id"`
+	Type               string `json:"type"`
+	Controller         string `json:"controller"`
+	PublicKeyMultibase string `json:"publicKeyMultibase"`
 }
 
 type VerificationReceipt struct {
@@ -243,13 +253,25 @@ func (c *DztaContract) RevokeCredential(ctx contractapi.TransactionContextInterf
 
 // RegisterDID saves DID document links to the chain state
 func (c *DztaContract) RegisterDID(ctx contractapi.TransactionContextInterface, did string, issuerDID string, publicKey string) error {
+	if did == "" || issuerDID == "" || publicKey == "" {
+		return fmt.Errorf("did, issuer DID, and public key are required")
+	}
 	key := fmt.Sprintf("DID_%s", did)
+	verificationMethodID := fmt.Sprintf("%s#key-1", did)
 
 	doc := DIDDocument{
-		ID:             did,
-		PublicKey:      publicKey,
-		Authentication: []string{"key-1"},
-		IssuerDID:      issuerDID,
+		Context:   []string{"https://www.w3.org/ns/did/v1"},
+		ID:        did,
+		PublicKey: publicKey,
+		VerificationMethod: []VerificationMethod{{
+			ID:                 verificationMethodID,
+			Type:               "Ed25519VerificationKey2020",
+			Controller:         did,
+			PublicKeyMultibase: publicKey,
+		}},
+		Authentication:  []string{verificationMethodID},
+		AssertionMethod: []string{verificationMethodID},
+		IssuerDID:       issuerDID,
 	}
 
 	docBytes, err := json.Marshal(doc)

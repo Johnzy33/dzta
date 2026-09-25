@@ -514,25 +514,4 @@ impl UserContext {
         &self.msp_id
     }
 
-    pub fn sign_bytes(&self, bytes: &[u8]) -> WalletResult<Vec<u8>> {
-        use openssl::hash::MessageDigest;
-        use openssl::pkey::PKey;
-        use openssl::sign::Signer;
-
-        let private_key = PKey::private_key_from_pem(self.key_pem.as_bytes())
-            .map_err(|e| WalletError::SigningError(e.to_string()))?;
-
-        let mut signer = Signer::new(MessageDigest::sha256(), &private_key)
-            .map_err(|e| WalletError::SigningError(e.to_string()))?;
-
-        signer
-            .update(bytes)
-            .map_err(|e| WalletError::SigningError(e.to_string()))?;
-
-        let signature = signer
-            .sign_to_vec()
-            .map_err(|e| WalletError::SigningError(e.to_string()))?;
-
-        Ok(signature)
-    }
 }

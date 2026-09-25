@@ -1,6 +1,7 @@
 // src/schema_engine.rs
 use crate::errors::{WalletError, WalletResult};
-use crate::models::CredentialSchema;
+// use crate::models::CredentialSchema;
+use shared::CredentialSchema;
 use serde_json::Value;
 use log::{debug, error};
 
@@ -57,7 +58,7 @@ impl SchemaEngine {
             }
         }
 
-        debug!("✓ Live schema structural verification passed");
+        debug!(" Live schema structural verification passed");
         Ok(())
     }
 }

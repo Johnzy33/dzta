@@ -1,7 +1,8 @@
 // fabric-client/src/fabric_client.rs
 use crate::config::{ConnectionConfig, UserContext};
 use crate::errors::{WalletError, WalletResult};
-use crate::models::*;
+// use crate::models::*;
+use shared::models::*;
 use log::{debug, error, info, warn};
 use serde_json::json;
 use std::sync::Arc;
@@ -239,23 +240,60 @@ impl FabricClient {
 
 
 
-    pub fn generate_did(&self) -> String {
-        // Fallback or static generation for mock testing
-        if self.is_mock {
-            return "did:dzta:mockorg1mspid123456789".to_string();
+    /// Generate a stable DID from the issuer's public key.
+    pub fn generate_did(&self, public_key: &str) -> WalletResult<String> {
+        if public_key.trim().is_empty() {
+            return Err(WalletError::ConfigError(
+                "Cannot generate a DID without a public key".to_string(),
+            ));
         }
 
-        // Derive a unique suffix by hashing the mspid and peer network endpoint
-        let mut hasher = Sha256::new();
-        hasher.update(self.org_mspid.as_bytes());
-        hasher.update(self.peer_url.as_bytes());
-        let hash_result = hasher.finalize();
-        
-        // Format to hex string
-        let id_suffix = hex::encode(&hash_result[0..16]); // Use first 16 bytes for a clean identifier
+        let public_key = openssl::pkey::PKey::public_key_from_pem(public_key.as_bytes())
+            .map_err(|e| WalletError::ConfigError(format!("Invalid issuer public key: {}", e)))?;
+        let public_key_der = public_key.public_key_to_der()
+            .map_err(|e| WalletError::ConfigError(format!("Failed to encode issuer public key: {}", e)))?;
 
-        // Returns standard format: did:dzta:<hex_suffix>
-        format!("did:dzta:{}", id_suffix)
+        self.generate_did_from_public_key(&public_key_der)
+    }
+
+    /// Generate a stable DID from raw public-key material.
+    pub fn generate_did_from_public_key(&self, public_key: &[u8]) -> WalletResult<String> {
+        if public_key.is_empty() {
+            return Err(WalletError::ConfigError(
+                "Cannot generate a DID without a public key".to_string(),
+            ));
+        }
+
+        let mut hasher = Sha256::new();
+        hasher.update(public_key);
+        let hash_result = hasher.finalize();
+
+        Ok(format!("did:dzta:{}", hex::encode(&hash_result[0..16])))
+    }
+
+    /// Return the issuer public key from the configured enrollment certificate.
+    /// The corresponding private key is never returned by this method.
+    pub async fn get_identity_public_key(&self) -> WalletResult<String> {
+        let config_guard = self.config.read().await;
+        let user_context = config_guard.get_user_context()?;
+        let cert_pem = user_context.get_cert_pem();
+        let cert_bytes = if cert_pem.contains("-----BEGIN CERTIFICATE-----") {
+            cert_pem.as_bytes().to_vec()
+        } else {
+            std::fs::read(cert_pem).map_err(|e| {
+                WalletError::ConfigError(format!("Failed to load identity certificate: {}", e))
+            })?
+        };
+
+        let certificate = openssl::x509::X509::from_pem(&cert_bytes)
+            .map_err(|e| WalletError::ConfigError(format!("Invalid identity certificate: {}", e)))?;
+        let public_key = certificate.public_key()
+            .map_err(|e| WalletError::ConfigError(format!("Certificate public key unavailable: {}", e)))?
+            .public_key_to_pem()
+            .map_err(|e| WalletError::ConfigError(format!("Failed to encode public key: {}", e)))?;
+
+        String::from_utf8(public_key)
+            .map_err(|e| WalletError::ConfigError(format!("Public key is not valid UTF-8: {}", e)))
     }
 
     /// Register DID on Fabric ledger
@@ -265,6 +303,11 @@ impl FabricClient {
         issuer_did: &str,
         public_key: &str,
     ) -> WalletResult<String> {
+        if did.trim().is_empty() || issuer_did.trim().is_empty() || public_key.trim().is_empty() {
+            return Err(WalletError::ConfigError(
+                "DID, issuer DID, and public key are required".to_string(),
+            ));
+        }
         let invocation = ChaincodeInvocation {
             function: "RegisterDID".to_string(),
             args: vec![
@@ -338,6 +381,26 @@ impl FabricClient {
         let revoked: bool = serde_json::from_slice(&response)
             .map_err(WalletError::SerializationError)?;
         Ok(revoked)
+    }
+
+    /// Check ledger revocation and expiration before generating a proof.
+    pub async fn verify_credential_active(&self, credential_id: &str) -> WalletResult<bool> {
+        if self.is_credential_revoked(credential_id).await? {
+            return Err(WalletError::RevocationError(format!(
+                "Credential revoked: {}",
+                credential_id
+            )));
+        }
+
+        let metadata = self.get_credential_metadata(credential_id).await?;
+        if chrono::Utc::now().timestamp() > metadata.expires_at {
+            return Err(WalletError::RevocationError(format!(
+                "Credential expired: {}",
+                credential_id
+            )));
+        }
+
+        Ok(true)
     }
 
     /// Revoke credential on Fabric ledger

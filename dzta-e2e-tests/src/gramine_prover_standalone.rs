@@ -22,32 +22,6 @@ async fn test_gramine_prover_standalone_execution() {
     let required_clearance_level: u64 = 3;
 
     // Constructed payload matching DecryptedCredentialSubject schema
-
-    // let full_credential_payload = json!({
-    //         "credential_id": "bb2123b7-adc3-4209-be32-c58e1d78cf8b",
-    //         "schema_id": "SecurityClearanceTemplate:1.0.0",
-    //         "issuer_did": "did:dzta:issuer-org1",
-    //         "subject_did": "did:dzta:user-nathaniel-777",
-    //         "credential_subject": {
-    //             "user_clearance_level": 5,
-    //             "user_role_scalar": "systems-engineer",
-    //             "subject_did": "did:dzta:user-nathaniel-777",
-    //             "credential_id": "bb2123b7-adc3-4209-be32-c58e1d78cf8b"
-    //         },
-    //         "expires_at": 1800000000i64
-    // });
-
-    // let raw_cleartext_json = serde_json::to_vec(&full_credential_payload)
-    // .expect("Failed to serialize full credential payload JSON");
-
-
-    // // Encrypt payload using XOR scheme matching ZkpCore::unseal_and_derive_witness
-    // let raw_wallet_ciphertext: Vec<u8> = raw_cleartext_json
-    //     .iter()
-    //     .zip(wallet_db_key.iter().cycle())
-    //     .map(|(&c, &k)| c ^ k)
-    //     .collect();
-
     // Create ONLY the DecryptedCredentialSubject, not the full credential wrapper
     let credential_subject = json!({
         "user_clearance_level": 5,
@@ -96,6 +70,7 @@ async fn test_gramine_prover_standalone_execution() {
             .prove_raw_wallet_record_in_gramine(
                 raw_wallet_ciphertext.clone(),
                 wallet_db_key.clone(),
+                None,
                 required_clearance_level,
                 master_seed,
             )

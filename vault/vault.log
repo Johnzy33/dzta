@@ -1,0 +1,190 @@
+==> Vault server configuration:
+
+Administrative Namespace: 
+             Api Address: https://127.0.0.1:8200
+                     Cgo: enabled
+         Cluster Address: https://127.0.0.1:8201
+   Environment Variables: AMD_VULKAN_ICD, BROWSER, COLORFGBG, COLORTERM, DBUS_SESSION_BUS_ADDRESS, DEBUGINFOD_URLS, DESKTOP_SESSION, DISPLAY, EDITOR, FLATPAK_TTY_PROGRESS, GOTRACEBACK, GTK2_RC_FILES, GTK_RC_FILES, GTK_USE_PORTAL, HOME, ICEAUTHORITY, INVOCATION_ID, JOURNAL_STREAM, KDE_APPLICATIONS_AS_SCOPE, KDE_FULL_SESSION, KDE_SESSION_UID, KDE_SESSION_VERSION, KONSOLE_DBUS_ACTIVATION_COOKIE, KONSOLE_DBUS_SERVICE, KONSOLE_DBUS_SESSION, KONSOLE_DBUS_WINDOW, KONSOLE_VERSION, LANG, LANGUAGE, LC_ADDRESS, LC_IDENTIFICATION, LC_MEASUREMENT, LC_MONETARY, LC_NAME, LC_NUMERIC, LC_PAPER, LC_TELEPHONE, LC_TIME, LOGNAME, MAIL, MANAGERPID, MANAGERPIDFDID, MANPAGER, MANROFFOPT, MEMORY_PRESSURE_WATCH, MEMORY_PRESSURE_WRITE, MOTD_SHOWN, MOZ_ENABLE_WAYLAND, MOZ_USE_XINPUT2, OLDPWD, PAM_KWALLET5_LOGIN, PATH, PROFILEHOME, PWD, PYTHONPATH, QML2_IMPORT_PATH, QT_PLUGIN_PATH, QT_WAYLAND_RECONNECT, SESSION_MANAGER, SHELL, SHELL_SESSION_ID, SHLVL, STARSHIP_SESSION_KEY, STARSHIP_SHELL, SYSTEMD_EXEC_PID, TERM, USER, VAULT_ADDR, VAULT_CACERT, VISUAL, VSSCRIPT_PATH, WAYLAND_DISPLAY, WINDOWID, XAUTHORITY, XDG_CONFIG_DIRS, XDG_CURRENT_DESKTOP, XDG_DATA_DIRS, XDG_MENU_PREFIX, XDG_RUNTIME_DIR, XDG_SEAT, XDG_SEAT_PATH, XDG_SESSION_CLASS, XDG_SESSION_DESKTOP, XDG_SESSION_ID, XDG_SESSION_PATH, XDG_SESSION_TYPE, XDG_VTNR, YDOTOOL_SOCKET, _, _JAVA_AWT_WM_NONREPARENTING
+              Go Version: go1.26.5-X:nodwarf5
+              Listener 1: tcp (addr: "127.0.0.1:8200", cluster address: "127.0.0.1:8201", disable_request_limiter: "false", max_json_array_element_count: "10000", max_json_depth: "300", max_json_object_entry_count: "10000", max_json_string_value_length: "1048576", max_request_duration: "1m30s", max_request_size: "33554432", tls: "enabled")
+               Log Level: 
+                   Mlock: supported: true, enabled: false
+           Recovery Mode: false
+                 Storage: raft (HA available)
+                 Version: Vault v2.0.4, built 2025-09-25T13:47:57Z
+
+==> Vault server started! Log data will stream in below:
+
+2026-09-25T09:47:57.853-0400 [INFO]  proxy environment: http_proxy="" https_proxy="" no_proxy=""
+2026-09-25T09:47:57.910-0400 [INFO]  incrementing seal generation: generation=1
+2026-09-25T09:47:57.911-0400 [INFO]  core: Initializing version history cache for core
+2026-09-25T09:47:57.911-0400 [INFO]  events: Starting event system
+2026-09-25T09:47:59.870-0400 [INFO]  core: security barrier not initialized
+2026-09-25T09:47:59.870-0400 [INFO]  core: seal configuration missing, not initialized
+2026-09-25T09:47:59.871-0400 [INFO]  core: security barrier not initialized
+2026-09-25T09:47:59.986-0400 [INFO]  storage.raft: creating Raft: config="&raft.Config{ProtocolVersion:3, HeartbeatTimeout:5000000000, ElectionTimeout:5000000000, CommitTimeout:50000000, MaxAppendEntries:64, BatchApplyCh:true, ShutdownOnRemove:true, TrailingLogs:0x2800, SnapshotInterval:120000000000, SnapshotThreshold:0x2000, LeaderLeaseTimeout:2500000000, LocalID:\"dzta-local-node\", NotifyCh:(chan<- bool)(0x28a8a5b66b80), LogOutput:io.Writer(nil), LogLevel:\"DEBUG\", Logger:(*hclog.interceptLogger)(0x28a8a6187b30), NoSnapshotRestoreOnStart:true, PreVoteDisabled:false, NoLegacyTelemetry:false, skipStartup:false}"
+2026-09-25T09:47:59.999-0400 [INFO]  storage.raft: initial configuration: index=1 servers="[{Suffrage:Voter ID:dzta-local-node Address:127.0.0.1:8201}]"
+2026-09-25T09:47:59.999-0400 [INFO]  storage.raft: entering follower state: follower="Node at dzta-local-node [Follower]" leader-address= leader-id=
+2026-09-25T09:48:06.685-0400 [INFO]  core: security barrier not initialized
+2026-09-25T09:48:07.748-0400 [WARN]  storage.raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-09-25T09:48:07.748-0400 [INFO]  storage.raft: entering candidate state: node="Node at dzta-local-node [Candidate]" term=2
+2026-09-25T09:48:07.748-0400 [INFO]  storage.raft: pre-vote successful, starting election: term=2 tally=1 refused=0 votesNeeded=1
+2026-09-25T09:48:07.782-0400 [INFO]  storage.raft: election won: term=2 tally=1
+2026-09-25T09:48:07.782-0400 [INFO]  storage.raft: entering leader state: leader="Node at dzta-local-node [Leader]"
+2026-09-25T09:48:07.811-0400 [INFO]  core: seal configuration missing, not initialized
+2026-09-25T09:48:07.871-0400 [INFO]  core: security barrier initialized: stored=1 shares=1 threshold=1
+2026-09-25T09:48:07.948-0400 [INFO]  core: post-unseal setup starting
+2026-09-25T09:48:07.983-0400 [INFO]  core: loaded wrapping token key
+2026-09-25T09:48:07.983-0400 [INFO]  core: successfully setup plugin runtime catalog
+2026-09-25T09:48:07.983-0400 [INFO]  core: successfully setup plugin catalog: plugin-directory=""
+2026-09-25T09:48:07.984-0400 [INFO]  core: no mounts; adding default mount table
+2026-09-25T09:48:08.012-0400 [INFO]  core: successfully mounted: type=cubbyhole version="v2.0.4+builtin.vault" path=cubbyhole/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.012-0400 [INFO]  core: successfully mounted: type=system version="v2.0.4+builtin.vault" path=sys/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.012-0400 [INFO]  core: successfully mounted: type=identity version="v2.0.4+builtin.vault" path=identity/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.012-0400 [INFO]  core: successfully mounted: type=agent_registry version="v2.0.4+builtin.vault" path=agent-registry/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.118-0400 [INFO]  core: successfully mounted: type=token version="v2.0.4+builtin.vault" path=token/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.141-0400 [INFO]  rollback: Starting the rollback manager with 256 workers
+2026-09-25T09:48:08.141-0400 [INFO]  rollback: starting rollback manager
+2026-09-25T09:48:08.141-0400 [INFO]  core: restoring leases
+2026-09-25T09:48:08.142-0400 [INFO]  expiration: lease restore complete
+2026-09-25T09:48:08.175-0400 [INFO]  identity: entities restored
+2026-09-25T09:48:08.175-0400 [INFO]  identity: groups restored
+2026-09-25T09:48:08.177-0400 [INFO]  core: usage gauge collection is disabled
+2026-09-25T09:48:08.197-0400 [INFO]  core: Recorded vault version: vault version=2.0.4 upgrade time="2026-09-25 13:48:08.177012776 +0000 UTC" build date=2025-09-25T13:47:57Z
+2026-09-25T09:48:08.285-0400 [INFO]  core: post-unseal setup complete
+2026-09-25T09:48:08.344-0400 [INFO]  core: root token generated
+2026-09-25T09:48:08.378-0400 [INFO]  core: pre-seal teardown starting
+2026-09-25T09:48:08.378-0400 [INFO]  core: stopping raft active node
+2026-09-25T09:48:08.378-0400 [INFO]  rollback: stopping rollback manager
+2026-09-25T09:48:08.378-0400 [INFO]  core: pre-seal teardown complete
+2026-09-25T09:48:08.496-0400 [INFO]  core.cluster-listener.tcp: starting listener: listener_address=127.0.0.1:8201
+2026-09-25T09:48:08.496-0400 [INFO]  core.cluster-listener: serving cluster requests: cluster_listen_address=127.0.0.1:8201
+2026-09-25T09:48:08.496-0400 [INFO]  storage.raft: creating Raft: config="&raft.Config{ProtocolVersion:3, HeartbeatTimeout:15000000000, ElectionTimeout:15000000000, CommitTimeout:50000000, MaxAppendEntries:64, BatchApplyCh:true, ShutdownOnRemove:true, TrailingLogs:0x2800, SnapshotInterval:120000000000, SnapshotThreshold:0x2000, LeaderLeaseTimeout:2500000000, LocalID:\"dzta-local-node\", NotifyCh:(chan<- bool)(0x28a8a5418400), LogOutput:io.Writer(nil), LogLevel:\"DEBUG\", Logger:(*hclog.interceptLogger)(0x28a8a6187b30), NoSnapshotRestoreOnStart:true, PreVoteDisabled:false, NoLegacyTelemetry:false, skipStartup:false}"
+2026-09-25T09:48:08.503-0400 [INFO]  storage.raft: initial configuration: index=1 servers="[{Suffrage:Voter ID:dzta-local-node Address:127.0.0.1:8201}]"
+2026-09-25T09:48:08.503-0400 [INFO]  storage.raft: entering follower state: follower="Node at 127.0.0.1:8201 [Follower]" leader-address= leader-id=
+2026-09-25T09:48:08.503-0400 [WARN]  storage.raft: heartbeat timeout reached, starting election: last-leader-addr= last-leader-id=
+2026-09-25T09:48:08.503-0400 [INFO]  storage.raft: entering candidate state: node="Node at 127.0.0.1:8201 [Candidate]" term=3
+2026-09-25T09:48:08.503-0400 [INFO]  core: vault is unsealed
+2026-09-25T09:48:08.503-0400 [INFO]  core: entering standby mode
+2026-09-25T09:48:08.503-0400 [INFO]  storage.raft: pre-vote successful, starting election: term=3 tally=1 refused=0 votesNeeded=1
+2026-09-25T09:48:08.527-0400 [INFO]  storage.raft: election won: term=3 tally=1
+2026-09-25T09:48:08.527-0400 [INFO]  storage.raft: entering leader state: leader="Node at 127.0.0.1:8201 [Leader]"
+2026-09-25T09:48:08.546-0400 [INFO]  core: acquired lock, enabling active operation
+2026-09-25T09:48:08.576-0400 [INFO]  core: post-unseal setup starting
+2026-09-25T09:48:08.593-0400 [INFO]  core: loaded wrapping token key
+2026-09-25T09:48:08.593-0400 [INFO]  core: successfully setup plugin runtime catalog
+2026-09-25T09:48:08.593-0400 [INFO]  core: successfully setup plugin catalog: plugin-directory=""
+2026-09-25T09:48:08.595-0400 [INFO]  core: successfully mounted: type=system version="v2.0.4+builtin.vault" path=sys/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.595-0400 [INFO]  core: successfully mounted: type=identity version="v2.0.4+builtin.vault" path=identity/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.595-0400 [INFO]  core: successfully mounted: type=agent_registry version="v2.0.4+builtin.vault" path=agent-registry/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.595-0400 [INFO]  core: successfully mounted: type=cubbyhole version="v2.0.4+builtin.vault" path=cubbyhole/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.596-0400 [INFO]  core: successfully mounted: type=token version="v2.0.4+builtin.vault" path=token/ namespace="ID: root. Path: "
+2026-09-25T09:48:08.596-0400 [INFO]  rollback: Starting the rollback manager with 256 workers
+2026-09-25T09:48:08.596-0400 [INFO]  rollback: starting rollback manager
+2026-09-25T09:48:08.597-0400 [INFO]  core: restoring leases
+2026-09-25T09:48:08.597-0400 [INFO]  expiration: lease restore complete
+2026-09-25T09:48:08.597-0400 [INFO]  identity: entities restored
+2026-09-25T09:48:08.597-0400 [INFO]  identity: groups restored
+2026-09-25T09:48:08.597-0400 [INFO]  core: starting raft active node
+2026-09-25T09:48:08.597-0400 [INFO]  storage.raft: starting autopilot: config="CleanupDeadServers:false LastContactThreshold:10s DeadServerLastContactThreshold:24h0m0s MaxTrailingLogs:1000 MinQuorum:0 ServerStabilizationTime:10s DisableUpgradeMigration:false RedundancyZoneTag:redundancy_zone UpgradeVersionTag:upgrade_version"
+2026-09-25T09:48:08.623-0400 [INFO]  core: usage gauge collection is disabled
+2026-09-25T09:48:08.623-0400 [INFO]  core: post-unseal setup complete
+2026-09-25T09:48:08.808-0400 [INFO]  core: successful mount: namespace="" path=transit/ type=transit version="v2.0.4+builtin.vault"
+2026-09-25T09:58:14.544-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 13:58:08.19809246 +0000 UTC"
+2026-09-25T09:58:15.055-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 13:58:08.19809246 +0000 UTC"
+2026-09-25T09:58:15.410-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 13:58:08.623360751 +0000 UTC"
+2026-09-25T09:58:16.961-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 13:58:08.623360751 +0000 UTC"
+2026-09-25T09:58:18.323-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 13:58:08.19809246 +0000 UTC"
+2026-09-25T09:58:19.292-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 13:58:08.623360751 +0000 UTC"
+2026-09-25T09:58:19.459-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 13:58:08.623360751 +0000 UTC"
+2026-09-25T09:58:19.615-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 13:58:08.19809246 +0000 UTC"
+2026-09-25T09:58:19.762-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 13:58:08.623360751 +0000 UTC"
+2026-09-25T09:58:19.762-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 13:58:08.623360751 +0000 UTC"
+2026-09-25T09:58:19.933-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 13:58:08.19809246 +0000 UTC"
+2026-09-25T09:58:20.582-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 13:58:08.623360751 +0000 UTC"
+2026-09-25T09:58:20.973-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 13:58:08.19809246 +0000 UTC"
+2026-09-25T09:58:21.530-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 13:58:08.19809246 +0000 UTC"
+2026-09-25T10:08:08.264-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:08:08.226438528 +0000 UTC"
+2026-09-25T10:08:08.276-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:08:08.226438528 +0000 UTC"
+2026-09-25T10:08:08.305-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:08:08.226438528 +0000 UTC"
+2026-09-25T10:08:08.324-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:08:08.226438528 +0000 UTC"
+2026-09-25T10:08:08.466-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:08:08.226438528 +0000 UTC"
+2026-09-25T10:08:08.466-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:08:08.226438528 +0000 UTC"
+2026-09-25T10:08:08.537-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:08:08.226438528 +0000 UTC"
+2026-09-25T10:08:08.647-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:08:08.623939147 +0000 UTC"
+2026-09-25T10:08:08.658-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:08:08.623939147 +0000 UTC"
+2026-09-25T10:08:08.681-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:08:08.623939147 +0000 UTC"
+2026-09-25T10:08:08.698-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:08:08.623939147 +0000 UTC"
+2026-09-25T10:08:08.729-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:08:08.623939147 +0000 UTC"
+2026-09-25T10:08:08.729-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:08:08.623939147 +0000 UTC"
+2026-09-25T10:08:08.780-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:08:08.623939147 +0000 UTC"
+2026-09-25T10:18:08.232-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:18:08.198791018 +0000 UTC"
+2026-09-25T10:18:08.259-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:18:08.198791018 +0000 UTC"
+2026-09-25T10:18:08.299-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:18:08.198791018 +0000 UTC"
+2026-09-25T10:18:08.334-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:18:08.198791018 +0000 UTC"
+2026-09-25T10:18:08.362-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:18:08.198791018 +0000 UTC"
+2026-09-25T10:18:08.362-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:18:08.198791018 +0000 UTC"
+2026-09-25T10:18:08.433-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:18:08.198791018 +0000 UTC"
+2026-09-25T10:18:08.683-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:18:08.623141883 +0000 UTC"
+2026-09-25T10:18:08.696-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:18:08.623141883 +0000 UTC"
+2026-09-25T10:18:08.733-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:18:08.623141883 +0000 UTC"
+2026-09-25T10:18:08.751-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:18:08.623141883 +0000 UTC"
+2026-09-25T10:18:08.769-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:18:08.623141883 +0000 UTC"
+2026-09-25T10:18:08.769-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:18:08.623141883 +0000 UTC"
+2026-09-25T10:18:08.829-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:18:08.623141883 +0000 UTC"
+2026-09-25T10:28:08.245-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:28:08.19842218 +0000 UTC"
+2026-09-25T10:28:08.257-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:28:08.19842218 +0000 UTC"
+2026-09-25T10:28:08.307-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:28:08.19842218 +0000 UTC"
+2026-09-25T10:28:08.337-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:28:08.19842218 +0000 UTC"
+2026-09-25T10:28:08.349-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:28:08.19842218 +0000 UTC"
+2026-09-25T10:28:08.349-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:28:08.19842218 +0000 UTC"
+2026-09-25T10:28:08.383-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:28:08.19842218 +0000 UTC"
+2026-09-25T10:28:08.659-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:28:08.623990609 +0000 UTC"
+2026-09-25T10:28:08.676-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:28:08.623990609 +0000 UTC"
+2026-09-25T10:28:08.710-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:28:08.623990609 +0000 UTC"
+2026-09-25T10:28:08.728-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:28:08.623990609 +0000 UTC"
+2026-09-25T10:28:08.741-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:28:08.623990609 +0000 UTC"
+2026-09-25T10:28:08.741-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:28:08.623990609 +0000 UTC"
+2026-09-25T10:28:08.801-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:28:08.623990609 +0000 UTC"
+2026-09-25T10:38:08.241-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:38:08.198274124 +0000 UTC"
+2026-09-25T10:38:08.259-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:38:08.198274124 +0000 UTC"
+2026-09-25T10:38:08.294-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:38:08.198274124 +0000 UTC"
+2026-09-25T10:38:08.313-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:38:08.198274124 +0000 UTC"
+2026-09-25T10:38:08.333-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:38:08.198274124 +0000 UTC"
+2026-09-25T10:38:08.333-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:38:08.198274124 +0000 UTC"
+2026-09-25T10:38:08.382-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:38:08.198274124 +0000 UTC"
+2026-09-25T10:38:08.705-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:38:08.623885454 +0000 UTC"
+2026-09-25T10:38:08.763-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:38:08.623885454 +0000 UTC"
+2026-09-25T10:38:08.798-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:38:08.623885454 +0000 UTC"
+2026-09-25T10:38:08.812-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:38:08.623885454 +0000 UTC"
+2026-09-25T10:38:08.847-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:38:08.623885454 +0000 UTC"
+2026-09-25T10:38:08.847-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:38:08.623885454 +0000 UTC"
+2026-09-25T10:38:08.910-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:38:08.623885454 +0000 UTC"
+2026-09-25T10:48:08.230-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:48:08.198658073 +0000 UTC"
+2026-09-25T10:48:08.243-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:48:08.198658073 +0000 UTC"
+2026-09-25T10:48:08.285-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:48:08.198658073 +0000 UTC"
+2026-09-25T10:48:08.297-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:48:08.198658073 +0000 UTC"
+2026-09-25T10:48:08.328-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:48:08.198658073 +0000 UTC"
+2026-09-25T10:48:08.328-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:48:08.198658073 +0000 UTC"
+2026-09-25T10:48:08.384-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:48:08.198658073 +0000 UTC"
+2026-09-25T10:48:08.674-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:48:08.623280228 +0000 UTC"
+2026-09-25T10:48:08.698-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:48:08.623280228 +0000 UTC"
+2026-09-25T10:48:08.733-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:48:08.623280228 +0000 UTC"
+2026-09-25T10:48:08.746-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:48:08.623280228 +0000 UTC"
+2026-09-25T10:48:08.762-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:48:08.623280228 +0000 UTC"
+2026-09-25T10:48:08.762-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:48:08.623280228 +0000 UTC"
+2026-09-25T10:48:08.804-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:48:08.623280228 +0000 UTC"
+2026-09-25T10:58:08.238-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:58:08.198291269 +0000 UTC"
+2026-09-25T10:58:08.250-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:58:08.198291269 +0000 UTC"
+2026-09-25T10:58:08.292-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:58:08.198291269 +0000 UTC"
+2026-09-25T10:58:08.316-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:58:08.198291269 +0000 UTC"
+2026-09-25T10:58:08.328-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:58:08.198291269 +0000 UTC"
+2026-09-25T10:58:08.328-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:58:08.198291269 +0000 UTC"
+2026-09-25T10:58:08.375-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:58:08.198291269 +0000 UTC"
+2026-09-25T10:58:08.668-0400 [INFO]  core: updated replicated hwm role and managed key counts: prefix=replicated/ currentMonth="2026-09-25 14:58:08.623459088 +0000 UTC"
+2026-09-25T10:58:08.697-0400 [INFO]  core: updated replicated max kv counts: prefix=replicated/ currentMonth="2026-09-25 14:58:08.623459088 +0000 UTC"
+2026-09-25T10:58:08.745-0400 [INFO]  core: updated local max role and managed key counts: prefix=local/ currentMonth="2026-09-25 14:58:08.623459088 +0000 UTC"
+2026-09-25T10:58:08.768-0400 [INFO]  core: updated local max kv counts: prefix=local/ currentMonth="2026-09-25 14:58:08.623459088 +0000 UTC"
+2026-09-25T10:58:08.792-0400 [INFO]  core: updated local max external plugin counts: prefix=local/ currentMonth="2026-09-25 14:58:08.623459088 +0000 UTC"
+2026-09-25T10:58:08.792-0400 [INFO]  core: updated local kmip enabled: prefix=local/ currentMonth="2026-09-25 14:58:08.623459088 +0000 UTC"
+2026-09-25T10:58:08.848-0400 [INFO]  core: updated cluster data protection call counts: prefix=local/ currentMonth="2026-09-25 14:58:08.623459088 +0000 UTC"

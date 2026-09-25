@@ -8,9 +8,10 @@ use std::time::Duration;
 
 use log::{info, warn};
 
-use fabric_client::{
-    ConnectionConfig, CredentialAttributes, CredentialManager, FabricClient, SchemaAttribute,
-};
+use fabric_client::{ConnectionConfig, FabricClient};
+use dzta_issuer::{Issuer, LocalCredentialSigner};
+use dzta_wallet::Wallet;
+use shared::{CredentialAttributes, SchemaAttribute};
 use dzta_gramine_prover::runner::ExecutionMode;
 use dzta_gramine_prover::tee_runner::GramineExecutionProxy;
 use shared::zkp_core::{ProverOutputResponse, ZkpCore};
@@ -110,14 +111,16 @@ async fn test_full_dzta_stack_e2e_pipeline() {
         let _ = fs::remove_file(askar_db_path);
     }
 
-    let cred_manager = Arc::new(CredentialManager::new(
-        fabric_client.clone(),
-        askar_db_path,
-    ));
+    let wallet = Arc::new(Wallet::new(askar_db_path));
+    let signer = LocalCredentialSigner::generate().expect("Failed to generate credential signing key");
+    let issuer_pubkey = signer.public_key_multibase_value();
+    let issuer_signing_key = signer.public_key_bytes();
+    let issuer = Issuer::new(fabric_client.clone(), signer);
 
     let wallet_passphrase = "super_secure_passphrase_123";
-    cred_manager
-        .initialize_askar_store(wallet_passphrase)
+    
+    wallet
+        .initialize(wallet_passphrase)
         .await
         .expect("Failed to initialize Askar wallet store");
 
@@ -125,12 +128,14 @@ async fn test_full_dzta_stack_e2e_pipeline() {
     // STEP 2: REGISTER DIDS, SCHEMA & CREATE CREDENTIAL (LAYER 1)
     // -----------------------------------------------------------------
     info!("[L1] Registering Issuer & Subject DIDs on Fabric World State...");
-    let issuer_did = cred_manager.fabric_client.generate_did();
+    let issuer_did = fabric_client
+        .generate_did_from_public_key(&issuer_signing_key)
+        .expect("Failed to generate issuer DID from public key");
     let subject_did = "did:dzta:user-nathaniel-777";
     let dummy_pubkey = "ed25519_public_key_bytes_placeholder";
 
-    let _ = cred_manager.fabric_client.register_did(&issuer_did, &issuer_did, dummy_pubkey).await;
-    let _ = cred_manager.fabric_client.register_did(subject_did, &issuer_did, dummy_pubkey).await;
+    let _ = issuer.register_did(&issuer_did, &issuer_did, &issuer_pubkey).await;
+    let _ = issuer.register_did(subject_did, &issuer_did, dummy_pubkey).await;
 
     let schema_attributes = vec![
         SchemaAttribute { name: "userRoleId".to_string(), attr_type: "string".to_string(), predicate: false },
@@ -139,7 +144,7 @@ async fn test_full_dzta_stack_e2e_pipeline() {
         SchemaAttribute { name: "timestamp".to_string(), attr_type: "timestamp".to_string(), predicate: false },
     ];
 
-    let schema_id = cred_manager
+    let schema_id = issuer
         .register_schema(&issuer_did, "SecurityClearanceTemplate", "1.0.0", &schema_attributes)
         .await
         .expect("Failed to register schema");
@@ -154,10 +159,14 @@ async fn test_full_dzta_stack_e2e_pipeline() {
     let expires_at_unix = chrono::Utc::now().timestamp() + (24 * 60 * 60);
 
     info!("[L1] Creating and encrypting Verifiable Credential in Askar wallet...");
-    let stored_credential = cred_manager
+    let stored_credential = issuer
         .create_credential(&schema_id, &issuer_did, subject_did, &credential_payload, expires_at_unix)
         .await
         .expect("Failed to create credential");
+    wallet
+        .store_credential(&stored_credential.credential_id, &stored_credential.credential_data)
+        .await
+        .expect("Failed to deliver credential to holder wallet");
 
     let credential_id = stored_credential.credential_id.clone();
     info!("✓ [L1 SUCCESS] Credential created and anchored. ID: {}", credential_id);
@@ -166,17 +175,17 @@ async fn test_full_dzta_stack_e2e_pipeline() {
     // STEP 3: EXTRACT RAW ENCRYPTED RECORD & KEYS (LAYER 2 INTEGRATION)
     // -----------------------------------------------------------------
     info!("[L2] Fetching raw SQLite encrypted bytes and cached passphrase from wallet...");
-    let raw_wallet_ciphertext = cred_manager
+    let raw_wallet_ciphertext = wallet
         .fetch_raw_encrypted_record(&credential_id)
         .await
         .expect("Failed to fetch raw encrypted record from Askar");
 
-    let wallet_db_key = cred_manager
+    let wallet_db_key = wallet
         .get_askar_passphrase()
         .await
         .expect("Failed to retrieve cached Askar passphrase");
 
-    let zkp_seed_bytes = cred_manager
+    let zkp_seed_bytes = wallet
         .get_or_create_zkp_secret_seed()
         .await
         .expect("Failed to retrieve ZKP master seed");
@@ -205,14 +214,28 @@ async fn test_full_dzta_stack_e2e_pipeline() {
 
     let response: ProverOutputResponse = if binary_exists {
         info!("[L3] Unsealing encrypted record and generating Groth16 proof inside Gramine enclave...");
-        proxy
-            .prove_raw_wallet_record_in_gramine(
-                raw_wallet_ciphertext.clone(),
-                wallet_db_key.clone(),
-                required_clearance_level,
-                master_seed,
-            )
-            .expect("Gramine proof execution failed")
+        if proxy.is_hardware_backed() {
+            proxy
+                .prove_confidential_wallet_record_in_gramine(
+                    raw_wallet_ciphertext.clone(),
+                    Some(credential_id.clone()),
+                    required_clearance_level,
+                )
+                .expect("Confidential Gramine proof execution failed")
+        } else {
+            warn!(
+                "[L3 SECURITY WARNING] SGX is unavailable; using direct mode. Credential secrets are visible to the host in this compatibility path."
+            );
+            proxy
+                .prove_raw_wallet_record_in_gramine(
+                    raw_wallet_ciphertext.clone(),
+                    wallet_db_key.clone(),
+                    Some(credential_id.clone()),
+                    required_clearance_level,
+                    master_seed,
+                )
+                .expect("Direct Gramine proof execution failed")
+        }
     } else {
         warn!(
             "[L3] Prover binary missing at `{}`. Executing in-process ZkpCore unsealing fallback...",

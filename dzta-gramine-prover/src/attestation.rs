@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
+use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 
 pub struct GramineAttestationDriver;
@@ -38,6 +39,23 @@ impl GramineAttestationDriver {
         report_file.write_all(&padded)?;
         info!("[Gramine SGX] User report data successfully bound.");
         Ok(())
+    }
+
+    /// Binds a domain-separated digest to the SGX report. The caller should
+    /// include the proof inputs and any key-exchange public value in `data`.
+    pub fn bind_session(data: &[u8]) -> Result<()> {
+        let mut hasher = Sha256::new();
+        hasher.update(b"dZTA_SGX_SESSION_v1");
+        hasher.update(data);
+        Self::bind_user_report_data(&hasher.finalize())
+    }
+
+    /// Returns whether this process has the Gramine attestation devices needed
+    /// for hardware-backed key provisioning.
+    pub fn is_provisioning_capable() -> bool {
+        Self::is_sgx_hardware_active()
+            && Path::new(Self::USER_REPORT_DATA_PATH).exists()
+            && Path::new(Self::QUOTE_PATH).exists()
     }
 
     /// Retrieves the generated Intel SGX DCAP Quote from `/dev/attestation/quote`.

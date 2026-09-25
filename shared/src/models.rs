@@ -3,19 +3,79 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 // use uuid::Uuid;
 
+/// VC stored in a local wallet.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredCredential {
+    pub credential_id: String,
+    pub schema_id: String,
+    pub issuer_did: String,
+    pub subject_did: String,
+    pub credential_data: serde_json::Value,
+    #[serde(with = "datetime_utc")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "option_datetime_utc")]
+    pub expires_at: Option<DateTime<Utc>>,
+    pub stored_in_askar: bool,
+}
+
+/// Credential payload returned by an issuer before delivery to a holder wallet.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IssuedCredential {
+    pub credential_id: String,
+    pub schema_id: String,
+    pub issuer_did: String,
+    pub subject_did: String,
+    pub credential_data: serde_json::Value,
+    #[serde(with = "datetime_utc")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "option_datetime_utc")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+/// Credential attributes used by issuer and proof-generation workflows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CredentialAttributes {
+    pub user_role_id: String,
+    pub org_id: String,
+    pub clearance_level: u64,
+    pub timestamp: i64,
+}
+
+/// Credential schema attribute definition shared by issuer and Fabric APIs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchemaAttribute {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub attr_type: String,
+    pub predicate: bool,
+}
+
 
 
 /// DID Document (from Fabric chaincode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DIDDocument {
     /// Maps both W3C compliant "id" and local "did" fields safely
+    #[serde(rename = "@context", default)]
+    pub context: Vec<String>,
+
     #[serde(alias = "id")]
     pub did: String,
     
     #[serde(default)]
     pub issuer_did: String,
     
+    #[serde(default)]
     pub public_key: String,
+
+    #[serde(rename = "verificationMethod", default)]
+    pub verification_method: Vec<VerificationMethod>,
+
+    #[serde(default)]
+    pub authentication: Vec<String>,
+
+    #[serde(rename = "assertionMethod", default)]
+    pub assertion_method: Vec<String>,
     
     #[serde(default)]
     pub created: i64,
@@ -25,6 +85,16 @@ pub struct DIDDocument {
     
     #[serde(default, deserialize_with = "deserialize_bool_or_default")]
     pub active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationMethod {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub method_type: String,
+    pub controller: String,
+    #[serde(default)]
+    pub public_key_multibase: String,
 }
 
 /// Helper function to handle potential null/missing boolean conversions gracefully
@@ -62,15 +132,6 @@ pub struct CredentialSchema {
     pub version: String,
     pub attributes: Vec<SchemaAttribute>,
     pub created: i64,
-}
-
-/// Schema Attribute Definition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchemaAttribute {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub attr_type: String, // "string", "integer", "timestamp"
-    pub predicate: bool,   // Can be used in ZKP predicate
 }
 
 /// Helper module for serializing/deserializing DateTime<Utc> as a unix timestamp.
@@ -126,30 +187,6 @@ mod option_datetime_utc {
             None => Ok(None),
         }
     }
-}
-
-/// VCX Credential (stored in Askar)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StoredCredential {
-    pub credential_id: String,
-    pub schema_id: String,
-    pub issuer_did: String,
-    pub subject_did: String,
-    pub credential_data: serde_json::Value, // Raw VC JSON-LD
-    #[serde(with = "datetime_utc")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "option_datetime_utc")]
-    pub expires_at: Option<DateTime<Utc>>,
-    pub stored_in_askar: bool,
-}
-
-/// Credential Attributes (specific fields to be proven)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CredentialAttributes {
-    pub user_role_id: String,
-    pub org_id: String,
-    pub clearance_level: u64,
-    pub timestamp: i64,
 }
 
 /// ZKP Witness — Input for Circom circuit

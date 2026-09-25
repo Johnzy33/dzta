@@ -1,2 +1,7 @@
 /target
+.env
+.env.*
+!.env.example
+!.env.sgx.example
 
+# vault/scripts/vault-keys.json
