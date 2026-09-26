@@ -4,11 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+<<<<<<< HEAD
 
 shared = { path = "../shared" }
 
 async-trait = "0.1.77"
 # axum = "0.8"
+=======
+async-trait = "0.1.77"
+axum = "0.8"
+>>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 base64 = "0.22.1"
 dcap-qvl = { version = "0.6.3", features = ["report", "ring", "rustcrypto"] }
 hex = "0.4"
@@ -21,7 +26,10 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.35", features = ["macros", "net", "rt-multi-thread"] }
 thiserror = "2.0.18"
+<<<<<<< HEAD
 axum = { version = "0.8", features = ["macros"] }
 tower-http = { version = "0.5", features = ["trace"] }
 tracing = "0.1"
 zeroize = { version = "1.5", features = ["zeroize_derive"] }
+=======
+>>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
