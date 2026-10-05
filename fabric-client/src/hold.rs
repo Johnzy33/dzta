@@ -1,136 +1,52 @@
-impl Wallet {
-    /// Internal initializer called once a valid passkey is available (either during initial binding or subsequent unsealing).
-    pub async fn initialize(&self, pass_key: &str) -> WalletResult<()> {
-        if let Some(parent) = std::path::Path::new(&self.askar_store_path).parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| WalletError::StorageError(format!("Directory provisioning failed: {}", e)))?;
-        }
+use std::path::PathBuf;
+use tokio::process::Command;
 
-        use aries_askar::storage::KdfMethod;
-        let key_method = StoreKeyMethod::DeriveKey(KdfMethod::Argon2i(Default::default()));
-        let db_uri = if self.askar_store_path.starts_with("file:") || self.askar_store_path.contains("://") {
-            self.askar_store_path.clone()
-        } else {
-            format!("sqlite://{}", self.askar_store_path)
-        };
+#[tokio::test]
+async fn test_explicit_release_binary() {
+    // Manually specify path to target/release/attestation-broker
+    let mut bin_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    bin_path.push("target/release/attestation-broker");
 
-        let path = std::path::Path::new(&self.askar_store_path);
-        let store = if path.exists() {
-            Store::open(&db_uri, Some(key_method), pass_key.to_string().into(), None).await
-        } else {
-            Store::provision(&db_uri, key_method, pass_key.to_string().into(), None, false).await
-        }
-        .map_err(|e| WalletError::StorageError(format!("Askar initialization failed: {}", e)))?;
+    let mut child = Command::new(&bin_path)
+    .env("DZTA_SECRET_PROVIDER", "https")
+    .env("DZTA_KMS_ENDPOINT", "https://mock-kms.local")
+    .env("DZTA_MRENCLAVE", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff")
+    .env("DZTA_MRSIGNER", "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100")
+    .env("DZTA_ATTESTATION_BIND", "127.0.0.1:0")
+    .spawn()
+    .expect("Failed to spawn release binary. Ensure 'cargo build --release --bin attestation-broker' was run.");
 
-        *self.askar_store.write().await = Some(store);
-        *self.askar_passphrase.write().await = Some(pass_key.to_string());
-        Ok(())
-    }
+    // ... test logic ...
 
-    /// Onboarding / Provisioning Phase:
-    /// Receives the unsealed passkey alongside the Vault ciphertexts, initializes Askar with that passkey,
-    /// and persists the ciphertexts into the `enclave_secrets` table.
-    pub async fn provision_and_bind_vault(
-        &self,
-        credential_id: &str,
-        wallet_ciphertext: &str,
-        seed_ciphertext: &str,
-        unsealed_wallet_passkey: &str,
-    ) -> WalletResult<()> {
-        // 1. First, initialize/provision the SQLite database using the raw passkey
-        self.initialize(unsealed_wallet_passkey).await?;
-
-        // 2. Persist the Vault ciphertexts inside the now-open database
-        self.store_enclave_vault_ciphertexts(
-            credential_id,
-            wallet_ciphertext,
-            seed_ciphertext,
-        )
-        .await?;
-
-        Ok(())
-    }
-
-    /// Cold Boot Unsealing Phase:
-    /// Unlocks the existing Askar database using the passkey unsealed from Vault Transit.
-    pub async fn unlock_with_vault_passkey(&self, unsealed_passkey: &str) -> WalletResult<()> {
-        self.initialize(unsealed_passkey).await
-    }
+    child.kill().await.ok();
 }
 
 
+let vault_addr = std::env::var("DZTA_VAULT_ADDR")
+.unwrap_or_else(|_| "http://127.0.0.1:8200".to_string());
+let vault_token = std::env::var("DZTA_VAULT_TOKEN")
+.unwrap_or_else(|_| "root".to_string());
+let transit_key = std::env::var("DZTA_SECRET_RELEASE_KEY")
+.unwrap_or_else(|_| "key-v1".to_string());
 
-use shared::{WalletError, WalletResult, VaultEncryptor};
-use dzta_wallet::Wallet;
-use zeroize::Zeroizing;
+let mut child = Command::new(bin_path)
+.env("DZTA_SECRET_PROVIDER", "vault")
+.env("VAULT_ADDR", &vault_addr)
+.env("VAULT_TOKEN", &vault_token)
+.env("DZTA_VAULT_TRANSIT_KEY", &transit_key)
+.env("DZTA_MRENCLAVE", "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff")
+.env("DZTA_MRSIGNER", "ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100")
+.env("DZTA_ATTESTATION_BIND", "127.0.0.1:0")
+.spawn()
+.expect("Failed to spawn attestation-broker binary");
 
-/// Complete Enclave Unlocking Pipeline
-pub async fn unlock_wallet_from_enclave(
-    wallet: &Wallet,
-    vault_client: &(impl VaultEncryptor + ?Sized),
-    credential_id: &str,
-) -> WalletResult<()> {
-    // 1. Fetch encrypted Vault ciphertexts stored under "enclave_secrets" in Askar
-    let (wallet_ciphertext, _seed_ciphertext) = wallet
-        .fetch_enclave_vault_ciphertexts(credential_id)
-        .await?;
-
-    // 2. Decrypt wallet_ciphertext using Vault Transit to recover the raw passkey
-    // Wraps the returned bytes in Zeroizing memory to wipe host RAM on drop
-    let decrypted_bytes: Vec<u8> = vault_client
-        .decrypt(&wallet_ciphertext)
-        .await
-        .map_err(|e| WalletError::StorageError(format!("Vault decryption failed: {e}")))?;
-
-    let unsealed_passkey = Zeroizing::new(
-        String::from_utf8(decrypted_bytes)
-            .map_err(|e| WalletError::StorageError(format!("Invalid UTF-8 passkey: {e}")))?
-    );
-
-    // 3. Unlock local Askar SQLite database using the decrypted passkey
-    wallet.unlock_with_vault_passkey(&unsealed_passkey).await?;
-
-    // At this scope boundary, `unsealed_passkey` goes out of scope and gets zeroized in RAM
-    Ok(())
-}
-
-impl Wallet {
-    /// Opens or provisions the underlying Askar SQLite store using the unsealed passkey decrypted from Vault.
-    pub async fn unlock_with_vault_passkey(&self, unsealed_passkey: &str) -> WalletResult<()> {
-        if let Some(parent) = std::path::Path::new(&self.askar_store_path).parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| WalletError::StorageError(format!("Directory creation failed: {e}")))?;
-        }
-
-        use aries_askar::storage::KdfMethod;
-        let key_method = StoreKeyMethod::DeriveKey(KdfMethod::Argon2i(Default::default()));
-        let db_uri = if self.askar_store_path.starts_with("file:") || self.askar_store_path.contains("://") {
-            self.askar_store_path.clone()
-        } else {
-            format!("sqlite://{}", self.askar_store_path)
-        };
-
-        let path = std::path::Path::new(&self.askar_store_path);
-        let store = if path.exists() {
-            Store::open(&db_uri, Some(key_method), unsealed_passkey.to_string().into(), None).await
-        } else {
-            Store::provision(&db_uri, key_method, unsealed_passkey.to_string().into(), None, false).await
-        }
-        .map_err(|e| WalletError::StorageError(format!("Askar unlock failed: {e}")))?;
-
-        *self.askar_store.write().await = Some(store);
-        *self.askar_passphrase.write().await = Some(unsealed_passkey.to_string());
-        Ok(())
-    }
-}
-
-// Attestation Broker returns Vault ciphertexts + unsealed wallet key for initial setup
-let (wallet_ciphertext, seed_ciphertext, raw_wallet_key) = broker.provision_device().await?;
-
-// Wallet initializes Askar DB with raw_wallet_key and stores the ciphertexts
-wallet.provision_and_bind_vault(
-    &credential_id,
-    &wallet_ciphertext,
-    &seed_ciphertext,
-    &raw_wallet_key,
-).await?;
+let rogue_release_payload = serde_json::json!({
+    "credential_key_id": "test-credential-id-001",
+    "quote": base64::engine::general_purpose::STANDARD.encode(vec![1, 2, 3, 4]),
+                                              "report_data": base64::engine::general_purpose::STANDARD.encode(vec![5, 6, 7, 8]),
+                                              "enclave_public_key": enclave_pub_pem,
+                                              "mrenclave": "bad000000000000000000000000000000000000000000000000000000000dead",
+                                              "mrsigner": expected_mrsigner,
+                                              "wallet_ciphertext": "vault:v1:mock_wallet_ciphertext",
+                                              "seed_ciphertext": "vault:v1:mock_seed_ciphertext"
+});

@@ -23,12 +23,10 @@ fs.mounts = [
 sgx.trusted_files = [
   "file:{{ gramine.libos }}",
   "file:{{ gramine.runtimedir() }}/",
-  "file:dzta-gramine-prover",
 ]
 
 # Allowed files for non-SGX direct mode
 sgx.allowed_files = [
-  "file:/dzta-gramine-prover",
   "file:dzta-gramine-prover",
   "file:/usr/lib/",
   "file:/etc/resolv.conf",

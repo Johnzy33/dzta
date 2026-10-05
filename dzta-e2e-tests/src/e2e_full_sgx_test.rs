@@ -4,14 +4,10 @@ use std::process::{Child, Command};
 use std::sync::Arc;
 use std::time::Duration;
 
-<<<<<<< HEAD
 use fabric_client::FabricClient;
 use dzta_issuer::{Issuer, LocalCredentialSigner};
 use dzta_wallet::Wallet;
 use shared::{CredentialAttributes, SchemaAttribute};
-=======
-use fabric_client::{CredentialAttributes, CredentialManager, FabricClient, SchemaAttribute};
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 use dzta_gramine_prover::runner::ExecutionMode;
 use dzta_gramine_prover::tee_runner::GramineExecutionProxy;
 use shared::zkp_core::ProverOutputResponse;
@@ -49,11 +45,7 @@ fn start_broker(root: &Path) -> ChildGuard {
     ChildGuard(child)
 }
 
-<<<<<<< HEAD
 async fn create_live_credential() -> (Arc<Wallet>, String) {
-=======
-async fn create_live_credential() -> (Arc<CredentialManager>, String) {
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
     let config_path = required_env("DZTA_FABRIC_CONFIG");
     let fabric = FabricClient::new(
         &config_path,
@@ -67,7 +59,6 @@ async fn create_live_credential() -> (Arc<CredentialManager>, String) {
 
     let db_path = workspace_root().join("target/debug/test_full_sgx_askar.db");
     let _ = fs::remove_file(&db_path);
-<<<<<<< HEAD
     let wallet = Arc::new(Wallet::new(db_path.to_str().unwrap()));
     wallet
         .initialize(&required_env("DZTA_WALLET_PASSPHRASE"))
@@ -89,23 +80,6 @@ async fn create_live_credential() -> (Arc<CredentialManager>, String) {
     let schema_id = issuer
         .register_schema(
             &issuer_did,
-=======
-    let manager = Arc::new(CredentialManager::new(fabric.clone(), db_path.to_str().unwrap()));
-    manager
-        .initialize_askar_store(&required_env("DZTA_WALLET_PASSPHRASE"))
-        .await
-        .expect("failed to initialize Askar wallet");
-
-    let issuer = manager.fabric_client.generate_did();
-    let subject = required_env("DZTA_TEST_SUBJECT_DID");
-    let pubkey = "sgx-e2e-test-public-key";
-    manager.fabric_client.register_did(&issuer, &issuer, pubkey).await.expect("failed to register issuer");
-    manager.fabric_client.register_did(&subject, &issuer, pubkey).await.expect("failed to register subject");
-
-    let schema_id = manager
-        .register_schema(
-            &issuer,
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
             "SecurityClearanceTemplate",
             "1.0.0",
             &[
@@ -118,17 +92,10 @@ async fn create_live_credential() -> (Arc<CredentialManager>, String) {
         .await
         .expect("failed to register schema");
 
-<<<<<<< HEAD
     let credential = issuer
         .create_credential(
             &schema_id,
             &issuer_did,
-=======
-    let credential = manager
-        .create_credential(
-            &schema_id,
-            &issuer,
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
             &subject,
             &CredentialAttributes {
                 user_role_id: "systems-engineer".into(),
@@ -140,17 +107,12 @@ async fn create_live_credential() -> (Arc<CredentialManager>, String) {
         )
         .await
         .expect("failed to create credential");
-<<<<<<< HEAD
     wallet
         .store_credential(&credential.credential_id, &credential.credential_data)
         .await
         .expect("failed to deliver credential to holder wallet");
 
     (wallet, credential.credential_id)
-=======
-
-    (manager, credential.credential_id)
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 }
 
 #[tokio::test]
@@ -179,13 +141,8 @@ async fn test_full_sgx_e2e_pipeline() {
         "http://127.0.0.1:18443/v1/key-release",
     );
 
-<<<<<<< HEAD
     let (wallet, credential_id) = create_live_credential().await;
     let raw_ciphertext = wallet
-=======
-    let (manager, credential_id) = create_live_credential().await;
-    let raw_ciphertext = manager
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
         .fetch_raw_encrypted_record(&credential_id)
         .await
         .expect("failed to fetch encrypted credential envelope");

@@ -61,37 +61,6 @@ fn main() -> Result<()> {
         writeln!(stdout, "{}", serde_json::to_string(&request)?)?;
         stdout.flush()?;
         drop(stdout);
-<<<<<<< HEAD
-=======
-
-        let mut response_line = String::new();
-        stdin.read_line(&mut response_line).context("Failed to read wrapped enclave secrets")?;
-        let response: shared::zkp_core::AttestationResponse = serde_json::from_str(response_line.trim())?;
-        let decrypt = |encoded: &str| -> Result<Vec<u8>> {
-            let ciphertext = BASE64.decode(encoded)?;
-            let mut plaintext = vec![0u8; rsa.size() as usize];
-            let length = rsa.private_decrypt(&ciphertext, &mut plaintext, Padding::PKCS1_OAEP)?;
-            plaintext.truncate(length);
-            Ok(plaintext)
-        };
-        payload.wallet_db_key = Some(decrypt(&response.encrypted_wallet_key)?);
-        let seed = decrypt(&response.encrypted_master_seed)?;
-        payload.master_seed = Some(seed.as_slice().try_into().context("master seed must be 32 bytes")?);
-        enclave_private_key = Some(rsa);
-    }
-
-    let wallet_db_key = payload.wallet_db_key.take().context("wallet key missing")?;
-    let master_seed = payload.master_seed.take().context("master seed missing")?;
-
-    // 3. Unseal encrypted wallet payload & derive ZKP witness inside TEE boundary
-    // info!("[Gramine Prover] Unsealing encrypted payload & deriving witness inside enclave...");
-    // let mut derived_witness = ZkpCore::unseal_and_derive_witness(
-    //     &payload.raw_wallet_ciphertext,
-    //     &payload.wallet_db_key,
-    //     &payload.master_seed,
-    // )
-    // .map_err(|e| anyhow::anyhow!("Enclave unseal/witness derivation failed: {e}"))?;
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 
         let mut response_line = String::new();
         stdin.read_line(&mut response_line).context("Failed to read wrapped enclave secrets")?;

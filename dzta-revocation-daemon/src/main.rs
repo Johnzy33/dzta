@@ -206,7 +206,6 @@ impl FabricRevocationListener {
         }
     }
 
-    /// Pushes the revoked ID to Envoy's local runtime admin memory endpoint with retries.
 
     /// Pushes the revoked ID to the private Wasm Admin endpoint with exponential backoff retries.
     async fn sync_to_envoy_memory(&self, credential_id: &str) {

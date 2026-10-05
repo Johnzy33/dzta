@@ -17,7 +17,6 @@ enclave_size = "1024M"
 max_threads = 16
 remote_attestation = "dcap"
 allowed_files = [
-    "file:/dzta-gramine-prover",
     "file:dzta-gramine-prover",
     "file:/usr/lib/",
     "file:/etc/resolv.conf",
@@ -238,10 +237,6 @@ sha256 = "db8436cee62afa061c3df69eb7572eb4c1f4c345e2a26c19036b5f709cdbd787"
 [[sgx.trusted_files]]
 uri = "file:/usr/local/lib/gramine/runtime/glibc/libutil.so.1"
 sha256 = "db8436cee62afa061c3df69eb7572eb4c1f4c345e2a26c19036b5f709cdbd787"
-
-[[sgx.trusted_files]]
-uri = "file:dzta-gramine-prover"
-sha256 = "f5059927570f5a88c1152d37d3ea48ad2ea24428643a6e0de97b840d4db84b6a"
 
 [sgx.cpu_features]
 avx = "unspecified"

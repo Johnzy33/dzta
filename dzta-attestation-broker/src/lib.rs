@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 //dzta-attestation-broker/src/lib.rs
 
 use async_trait::async_trait;
@@ -27,28 +26,6 @@ pub use routes::{
     AppState, ErrorResponse,
 };
 
-=======
-use async_trait::async_trait;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use reqwest::Client;
-use rsa::{pkcs1::DecodeRsaPublicKey, Oaep, RsaPublicKey};
-use serde::{Deserialize, Serialize};
-use sha2_10::Sha256 as RsaSha256;
-use std::time::Duration;
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum BrokerError {
-    #[error("provider request failed: {0}")]
-    Request(#[from] reqwest::Error),
-    #[error("provider returned HTTP {status}: {body}")]
-    Provider { status: reqwest::StatusCode, body: String },
-    #[error("invalid provider response: {0}")]
-    Response(String),
-    #[error("provider configuration error: {0}")]
-    Configuration(String),
-}
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 
 /// Secrets are returned encrypted to the enclave public key. Providers must
 /// never return plaintext wallet keys to the host process.
@@ -74,11 +51,8 @@ pub trait SecretProvider: Send + Sync {
         &self,
         enclave: &VerifiedEnclave,
         credential_key_id: &str,
-<<<<<<< HEAD
         wallet_ciphertext: &str,
         seed_ciphertext: &str,
-=======
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
     ) -> Result<WrappedEnclaveSecrets, BrokerError>;
 }
 
@@ -93,7 +67,6 @@ pub struct VaultTransitProvider {
 }
 
 impl VaultTransitProvider {
-<<<<<<< HEAD
 
    pub fn new(
         address: impl Into<String>,
@@ -102,13 +75,6 @@ impl VaultTransitProvider {
     ) -> Result<Self, BrokerError> {
         let client = build_vault_client()?;
 
-=======
-    pub fn new(address: impl Into<String>, token: impl Into<String>, transit_key: impl Into<String>) -> Result<Self, BrokerError> {
-        let client = Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()
-            .map_err(BrokerError::Request)?;
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
         Ok(Self {
             client,
             address: address.into().trim_end_matches('/').to_string(),
@@ -119,12 +85,8 @@ impl VaultTransitProvider {
 
     async fn decrypt_envelope(&self, ciphertext: &str) -> Result<Vec<u8>, BrokerError> {
         let url = format!("{}/v1/transit/decrypt/{}", self.address, self.transit_key);
-<<<<<<< HEAD
         let response = self
             .client
-=======
-        let response = self.client
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
             .post(url)
             .header("X-Vault-Token", &self.token)
             .json(&serde_json::json!({ "ciphertext": ciphertext }))
@@ -133,7 +95,6 @@ impl VaultTransitProvider {
         let status = response.status();
         let body: VaultDecryptResponse = response.json().await.map_err(BrokerError::Request)?;
         if !status.is_success() {
-<<<<<<< HEAD
             return Err(BrokerError::Provider {
                 status,
                 body: body.errors.join(", "),
@@ -146,14 +107,10 @@ impl VaultTransitProvider {
         BASE64
             .decode(plaintext)
             .map_err(|e| BrokerError::Response(format!("invalid Vault plaintext: {e}")))
-=======
-            return Err(BrokerError::Provider { status, body: body.errors.join(", ") });
-        }
-        let plaintext = body.data.plaintext.ok_or_else(|| BrokerError::Response("Vault returned no plaintext".to_string()))?;
-        BASE64.decode(plaintext).map_err(|e| BrokerError::Response(format!("invalid Vault plaintext: {e}")))
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
     }
 }
+
+
 
 #[derive(Debug, Deserialize)]
 struct VaultDecryptResponse {
@@ -168,21 +125,11 @@ struct VaultDecryptData {
     plaintext: Option<String>,
 }
 
-<<<<<<< HEAD
 /// The broker decrypts Vault Transit ciphertexts per request.
 /// `release_for_verified_enclave` is deliberately left as the broker's boundary method:
 /// it uses an enclave-held public key encryption implementation, never sending
 /// `wallet_key` or `master_seed` to the client in plaintext.
 pub struct VaultSecretRelease {
-=======
-/// The broker stores Vault Transit ciphertexts for the two secret envelopes.
-/// `rewrap_for_enclave` is deliberately left as the broker's boundary method:
-/// it must use an enclave-held public key encryption implementation, never send
-/// `wallet_key` or `master_seed` to the client in plaintext.
-pub struct VaultSecretRelease {
-    pub wallet_ciphertext: String,
-    pub seed_ciphertext: String,
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
     pub provider: VaultTransitProvider,
 }
 
@@ -192,7 +139,6 @@ impl SecretProvider for VaultSecretRelease {
         &self,
         enclave: &VerifiedEnclave,
         credential_key_id: &str,
-<<<<<<< HEAD
         wallet_ciphertext: &str,
         seed_ciphertext: &str,
     ) -> Result<WrappedEnclaveSecrets, BrokerError> {
@@ -219,22 +165,6 @@ impl SecretProvider for VaultSecretRelease {
             .encrypt(&mut rng, Oaep::new::<RsaSha256>(), &master_seed)
             .map_err(|e| BrokerError::Response(format!("failed to wrap master seed: {e}")))?;
 
-=======
-    ) -> Result<WrappedEnclaveSecrets, BrokerError> {
-        if enclave.quote.is_empty() || enclave.report_data.is_empty() || enclave.enclave_public_key.is_empty() {
-            return Err(BrokerError::Configuration("verified enclave identity is incomplete".to_string()));
-        }
-        let wallet_key = self.provider.decrypt_envelope(&self.wallet_ciphertext).await?;
-        let master_seed = self.provider.decrypt_envelope(&self.seed_ciphertext).await?;
-        let public_key = RsaPublicKey::from_pkcs1_pem(&enclave.enclave_public_key)
-            .map_err(|e| BrokerError::Response(format!("invalid enclave public key: {e}")))?;
-        let padding = Oaep::new::<RsaSha256>();
-        let mut rng = rand::thread_rng();
-        let encrypted_wallet_key = public_key.encrypt(&mut rng, padding, &wallet_key)
-            .map_err(|e| BrokerError::Response(format!("failed to wrap wallet key: {e}")))?;
-        let encrypted_master_seed = public_key.encrypt(&mut rng, Oaep::new::<RsaSha256>(), &master_seed)
-            .map_err(|e| BrokerError::Response(format!("failed to wrap master seed: {e}")))?;
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
         Ok(WrappedEnclaveSecrets {
             encrypted_wallet_key: BASE64.encode(encrypted_wallet_key),
             encrypted_master_seed: BASE64.encode(encrypted_master_seed),
@@ -253,27 +183,19 @@ pub struct HttpsKmsProvider {
 }
 
 impl HttpsKmsProvider {
-<<<<<<< HEAD
     pub fn new(
         endpoint: impl Into<String>,
         bearer_token: Option<String>,
     ) -> Result<Self, BrokerError> {
-=======
-    pub fn new(endpoint: impl Into<String>, bearer_token: Option<String>) -> Result<Self, BrokerError> {
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
         let client = Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
             .map_err(BrokerError::Request)?;
-<<<<<<< HEAD
         Ok(Self {
             client,
             endpoint: endpoint.into(),
             bearer_token,
         })
-=======
-        Ok(Self { client, endpoint: endpoint.into(), bearer_token })
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
     }
 }
 
@@ -285,11 +207,8 @@ struct KmsReleaseRequest<'a> {
     mrenclave: &'a str,
     mrsigner: &'a str,
     credential_key_id: &'a str,
-<<<<<<< HEAD
     wallet_ciphertext: &'a str,
     seed_ciphertext: &'a str,
-=======
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 }
 
 #[async_trait]
@@ -298,11 +217,8 @@ impl SecretProvider for HttpsKmsProvider {
         &self,
         enclave: &VerifiedEnclave,
         credential_key_id: &str,
-<<<<<<< HEAD
         wallet_ciphertext: &str,
         seed_ciphertext: &str,
-=======
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
     ) -> Result<WrappedEnclaveSecrets, BrokerError> {
         let mut request = self.client.post(&self.endpoint).json(&KmsReleaseRequest {
             quote: &enclave.quote,
@@ -311,11 +227,8 @@ impl SecretProvider for HttpsKmsProvider {
             mrenclave: &enclave.mrenclave,
             mrsigner: &enclave.mrsigner,
             credential_key_id,
-<<<<<<< HEAD
             wallet_ciphertext,
             seed_ciphertext,
-=======
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
         });
         if let Some(token) = &self.bearer_token {
             request = request.bearer_auth(token);
@@ -323,19 +236,14 @@ impl SecretProvider for HttpsKmsProvider {
         let response = request.send().await?;
         let status = response.status();
         if !status.is_success() {
-<<<<<<< HEAD
             return Err(BrokerError::Provider {
                 status,
                 body: response.text().await?,
             });
-=======
-            return Err(BrokerError::Provider { status, body: response.text().await? });
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
         }
         response.json().await.map_err(BrokerError::Request)
     }
 }
-<<<<<<< HEAD
 
 // ----------------------------------------------------------------------------
 // OPTION A: Vault Datakey Engine Implementation
@@ -352,6 +260,7 @@ pub struct ProvisioningDataKeyResponse {
     /// ZKP Master seed wrapped for the enclave public key
     pub encrypted_master_seed_for_enclave: String,
 }
+
 #[derive(Debug, Deserialize)]
 struct VaultDatakeyResponse {
     #[serde(default)]
@@ -484,9 +393,8 @@ impl VaultDatakeyEngine {
     }
 
     ///  Called during subsequent ZKP generation sessions.
-    /// Takes the `ciphertext` stored on the Device's disk, unwraps it via Vault Transit `/decrypt`,
+    /// Takes the `ciphertext` stored on the Device's disk or user wallet, unwraps it via Vault Transit `/decrypt`,
     /// and re-wraps it strictly for the Enclave Public Key.
-   
     pub async fn unwrap_datakey_for_enclave(
         &self,
         wallet_ciphertext: &str,
@@ -626,5 +534,3 @@ impl VaultDecryptor for VaultDatakeyEngine {
             .map_err(|e| BrokerError::Response(format!("invalid Vault plaintext: {e}")))
     }
 }
-=======
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f

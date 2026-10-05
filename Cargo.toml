@@ -12,14 +12,9 @@ members = [
     "shared",
     "dzta-e2e-tests",
     "transport-engine",
-<<<<<<< HEAD
     "dzta-attestation-broker",
     "dzta-wallet",
     "dzta-issuer",
-=======
-    "dzta-arch-detector",
-    "dzta-attestation-broker",
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 ]
 resolver = "2"
 

@@ -44,3 +44,4 @@ pub trait VaultSeed:Send + Sync {
 pub trait VaultDecryptor {
     async fn decrypt(&self, ciphertext: &str) -> BrokerResult<Zeroizing<Vec<u8>>>;
 }
+

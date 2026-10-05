@@ -6,10 +6,7 @@ edition = "2021"
 
 [dependencies]
 shared = { path = "../shared" }
-<<<<<<< HEAD
 dzta-wallet = { path = "../dzta-wallet" }
-=======
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 
 # Fabric SDK
 fabric-sdk = { version = "0.5.8" }

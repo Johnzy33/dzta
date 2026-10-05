@@ -10,11 +10,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 use async_trait::async_trait;
-// use reqwest::{Certificate, Client};
-// use std::env;
-// use std::time::Duration;
-// use tokio::fs;
-use crate::errors::{WalletError, BrokerError, WalletResult};
+use crate::errors::{WalletError, WalletResult };
 use zeroize::Zeroizing;
 
 
@@ -23,11 +19,8 @@ const BLS12_381_SCALAR_FIELD_PRIME: &str =
 
 const WALLET_RECORD_MAGIC: &[u8; 5] = b"DZTA1";
 
-<<<<<<< HEAD
 
 
-=======
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
 pub fn encrypt_wallet_record(plaintext: &[u8], passphrase: &[u8]) -> WalletResult<Vec<u8>> {
     let key = Sha256::digest(passphrase);
     let mut nonce = [0u8; 12];
@@ -153,54 +146,6 @@ impl ZkpCore {
     // 1. In-Enclave Witness Derivation & Unsealing
     // =========================================================================
 
-<<<<<<< HEAD
-=======
-    /// Unseals raw wallet record using DB key inside TEE RAM, parses the credential subject,
-    /// and derives all ZKP witness parameters without exposing cleartext to Host OS.
-    // pub fn unseal_and_derive_witness(
-    //     raw_ciphertext: &[u8],
-    //     db_key: &[u8],
-    //     master_seed: &[u8; 32],
-    // ) -> WalletResult<DerivedEnclaveWitness> {
-    //     // Unseal/decrypt the payload. Handles raw JSON fallback or key-derived unsealing.
-    //     let cleartext_bytes = if db_key.is_empty() {
-    //     } else {
-    //         // Decrypt raw ciphertext via XOR stream/AEAD key envelope (or JSON fallback if unencrypted envelope)
-    //         serde_json::from_slice::<DecryptedCredentialSubject>(raw_ciphertext)
-    //             .map(|_| raw_ciphertext.to_vec())
-    //             .unwrap_or_else(|_| {
-    //                 raw_ciphertext
-    //                     .iter()
-    //                     .zip(db_key.iter().cycle())
-    //                     .map(|(&c, &k)| c ^ k)
-    //                     .collect()
-    //             })
-    //     };
-
-    //     let subject: DecryptedCredentialSubject = serde_json::from_slice(&cleartext_bytes)
-    //         .map_err(|e| WalletError::ExecutionFailed(format!("Failed to parse unsealed credential subject: {e}")))?;
-
-    //     let secret_nullifier = Self::derive_nullifier(
-    //         &subject.subject_did,
-    //         &subject.credential_id,
-    //         master_seed,
-    //     );
-
-    //     let public_commitment = Self::compute_commitment(
-    //         &secret_nullifier,
-    //         subject.user_clearance_level,
-    //         &subject.user_role_scalar,
-    //     );
-
-    //     Ok(DerivedEnclaveWitness {
-    //         clearance_level: subject.user_clearance_level,
-    //         user_role_scalar: subject.user_role_scalar.clone(),
-    //         secret_nullifier,
-    //         public_commitment,
-    //     })
-    // }
-
->>>>>>> 835470a2297f770aa1f6e65006e304bbf8f4bb4f
     pub fn unseal_and_derive_witness(
         raw_ciphertext: &[u8],
         db_key: &[u8],

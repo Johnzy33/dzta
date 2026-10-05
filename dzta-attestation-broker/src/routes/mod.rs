@@ -1,4 +1,4 @@
-// dzta-attestation-broker/src/routes/mod.rs
+
 pub mod datakey;
 
 use axum::{
@@ -11,17 +11,26 @@ use std::sync::Arc;
 use tower_http::trace::TraceLayer;
 use tracing::error;
 
-use crate::VaultDatakeyEngine;
+use crate::{SecretProvider, VaultDatakeyEngine};
 
 // ----------------------------------------------------------------------------
-// Shared App State
+// Unified App State
 // ----------------------------------------------------------------------------
+
+
 
 #[derive(Clone)]
 pub struct AppState {
-    pub datakey_engine: Arc<VaultDatakeyEngine>,
-}
+    pub pccs_url: String,
+    pub expected_mrenclave: Vec<u8>,
+    pub expected_mrsigner: Vec<u8>,
 
+    /// Policy-gated secret release backend (Vault or HTTP KMS)
+    pub kms: Arc<dyn SecretProvider>,
+
+    /// Wallet DEK and ZKP Seed generator (Vault Transit)
+    pub datakey_engine: Option<Arc<VaultDatakeyEngine>>,
+}
 // ----------------------------------------------------------------------------
 // Shared Error Adapters
 // ----------------------------------------------------------------------------
@@ -54,13 +63,9 @@ impl From<crate::BrokerError> for ApiError {
 // Master Router Builder
 // ----------------------------------------------------------------------------
 
-/// Assembles all sub-routers under their respective API prefixes.
 pub fn create_router(state: AppState) -> Router {
     Router::new()
-        // Nests datakey endpoints under /v1/datakey
-        .nest("/v1/datakey", datakey::router())
-        // Future endpoints can easily be added here:
-        // .nest("/v1/attestation", attestation::router())
-        .layer(TraceLayer::new_for_http())
-        .with_state(state)
+    .nest("/v1/datakey", datakey::router())
+    .layer(TraceLayer::new_for_http())
+    .with_state(state)
 }

@@ -26,10 +26,7 @@ use fabric_sdk::fabric::gateway::{
     // CommitStatusRequest,
     SubmitRequest
 };
-// use tonic::transport::{
-//     Certificate, Channel, ClientTlsConfig, Endpoint, Identity as TonicIdentity,
-// };
-//  use prost::Message;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct FabricClient {
     #[serde(skip)]
@@ -41,11 +38,7 @@ pub struct FabricClient {
     pub is_mock: bool, // Flag to toggle between mock mode and the production network
 }
 
-// #[derive(Debug, Clone, Serialize)]
-// pub struct ChaincodeInvocation {
-//     pub function: String,
-//     pub args: Vec<String>,
-// }
+
 
 impl FabricClient {
 
